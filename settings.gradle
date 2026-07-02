@@ -1,0 +1,19 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
+rootProject.name = 'origins-template-1.21.1'
+
+if (file('cosmetics').exists()) {
+    include 'cosmetics'
+}
+if (file('randomizer').exists()) {
+    include 'randomizer'
+}
+

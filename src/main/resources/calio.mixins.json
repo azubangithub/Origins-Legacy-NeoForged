@@ -1,0 +1,19 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "io.github.apace100.calio.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "ReloadableServerResourcesMixin",
+    "RegistrySyncMixin",
+    "particles.ParticleTypesMixin",
+    "particles.ParticleTypesAnonymousMixin"
+  ],
+  "client": [
+    "HandledScreenFocusedSlotAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
+

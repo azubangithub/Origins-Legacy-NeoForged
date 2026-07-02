@@ -1,0 +1,18 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "io.github.apace100.origins.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "ScareCreepersMixin",
+    "ConduitOnLandMixin",
+    "LikeWaterMixin",
+    "CarpetSettingsMixin"
+  ],
+  "client": [
+    "GuiGraphicsAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}
