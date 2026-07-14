@@ -8,6 +8,8 @@ import io.github.apace100.apoli.component.PowerHolderComponent;
 import io.github.apace100.apoli.networking.PlayerDismountPacket;
 import io.github.apace100.apoli.power.*;
 import io.github.apace100.apoli.util.ApoliSharedMixinValues;
+import io.github.apace100.apoli.util.modifier.ModifierUtil;
+import net.minecraft.network.protocol.game.ClientboundSetHealthPacket;
 // import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.commands.CommandSource;
 import net.minecraft.core.BlockPos;
@@ -242,7 +244,32 @@ public abstract class PlayerEntityMixin extends LivingEntity implements Nameable
         ApoliSharedMixinValues.CURRENT_STACK.set(stack);
         ((ModifiableFoodEntity) this).setOriginalFoodStack(stack);
         ((ModifiableFoodEntity) this).setCurrentModifyFoodPowers(mfps);
-        original.call(instance, foodProperties);
+
+        // Apply food and saturation modifiers from ModifyFoodPower
+        var foodModifiers = mfps.stream().flatMap(p -> p.getFoodModifiers().stream()).toList();
+        var saturationModifiers = mfps.stream().flatMap(p -> p.getSaturationModifiers().stream()).toList();
+
+        FoodProperties effectiveProperties = foodProperties;
+        boolean modified = !foodModifiers.isEmpty() || !saturationModifiers.isEmpty();
+        if (modified) {
+            int newNutrition = (int) ModifierUtil.applyModifiers(this, foodModifiers, foodProperties.nutrition());
+            float newSaturation = (float) ModifierUtil.applyModifiers(this, saturationModifiers, foodProperties.saturation());
+            effectiveProperties = new FoodProperties(newNutrition, newSaturation, foodProperties.canAlwaysEat(), foodProperties.eatSeconds(), foodProperties.usingConvertsTo(), foodProperties.effects());
+        }
+
+        original.call(instance, effectiveProperties);
+
+        // Execute entity actions from ModifyFoodPowers
+        if (!this.level().isClientSide) {
+            mfps.stream().filter(p -> p.doesApply(stack)).forEach(ModifyFoodPower::eat);
+        }
+
+        // Send manual health/food update to client if values were modified
+        if (modified && (Object) this instanceof ServerPlayer serverPlayer) {
+            serverPlayer.connection.send(new ClientboundSetHealthPacket(
+                this.getHealth(), instance.getFoodLevel(), instance.getSaturationLevel()));
+        }
+
         ApoliSharedMixinValues.CURRENT_STACK.remove();
         ((ModifiableFoodEntity) this).setOriginalFoodStack(null);
         ((ModifiableFoodEntity) this).setCurrentModifyFoodPowers(new ArrayList<>());
