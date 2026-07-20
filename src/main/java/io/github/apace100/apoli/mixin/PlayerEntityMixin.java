@@ -4,6 +4,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
 import io.github.apace100.apoli.access.ModifiableFoodEntity;
+import io.github.apace100.apoli.access.WaterMovingEntity;
 import io.github.apace100.apoli.component.PowerHolderComponent;
 import io.github.apace100.apoli.networking.PlayerDismountPacket;
 import io.github.apace100.apoli.power.*;
@@ -45,7 +46,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Mixin(Player.class)
-public abstract class PlayerEntityMixin extends LivingEntity implements Nameable, CommandSource {
+public abstract class PlayerEntityMixin extends LivingEntity implements Nameable, CommandSource, WaterMovingEntity {
 
     @Shadow
     @Final
@@ -278,6 +279,24 @@ public abstract class PlayerEntityMixin extends LivingEntity implements Nameable
     @com.llamalad7.mixinextras.injector.ModifyExpressionValue(method = "tryToStartFallFlying", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/ItemStack;canElytraFly(Lnet/minecraft/world/entity/LivingEntity;)Z"))
     private boolean apoli$allowElytraFlightServer(boolean original) {
         return original || PowerHolderComponent.hasPower(this, ElytraFlightPower.class);
+    }
+
+    @Unique
+    private boolean apoli$isMoving = false;
+
+    @Inject(at = @At("HEAD"), method = "aiStep")
+    private void apoli$beginMovementPhase(CallbackInfo ci) {
+        apoli$isMoving = true;
+    }
+
+    @Inject(at = @At("TAIL"), method = "aiStep")
+    private void apoli$endMovementPhase(CallbackInfo ci) {
+        apoli$isMoving = false;
+    }
+
+    @Override
+    public boolean isInMovementPhase() {
+        return apoli$isMoving;
     }
 }
 

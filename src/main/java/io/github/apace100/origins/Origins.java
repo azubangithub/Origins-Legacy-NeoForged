@@ -4,6 +4,7 @@ import com.mojang.logging.LogUtils;
 import io.github.apace100.origins.badge.BadgeManager;
 import io.github.apace100.origins.networking.ModPackets;
 import io.github.apace100.origins.networking.ModPacketsC2S;
+import io.github.apace100.origins.registry.ModBlocks;
 import io.github.apace100.origins.registry.ModComponents;
 import io.github.apace100.origins.registry.ModEntities;
 import io.github.apace100.origins.registry.ModItems;
@@ -68,6 +69,7 @@ public class Origins {
         resourceManager.finishRegistration();
 
         // Phase 5: Register Origins DeferredRegisters
+        ModBlocks.register(modBus);
         ModComponents.ATTACHMENT_TYPES.register(modBus);
         ModEntities.ENTITY_TYPES.register(modBus);
         ModLoot.LOOT_CONDITION_TYPES.register(modBus);

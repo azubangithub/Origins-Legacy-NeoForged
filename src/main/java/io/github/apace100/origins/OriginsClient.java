@@ -45,11 +45,15 @@ public class OriginsClient {
         io.github.apace100.apoli.ApoliClient.registerPowerKeybinding("key.origins.secondary_active", useSecondaryActivePowerKeybind);
     }
 
-    // Will be called via event bus
     public static void onClientSetup(FMLClientSetupEvent event) {
         Origins.LOGGER.info("Origins client setup on NeoForge");
         io.github.apace100.apoli.ApoliClient.init();
-        // TODO: BlockRenderLayerMap equivalent, entity renderers
+        event.enqueueWork(() -> {
+            net.minecraft.client.renderer.ItemBlockRenderTypes.setRenderLayer(
+                io.github.apace100.origins.registry.ModBlocks.TEMPORARY_COBWEB.get(),
+                net.minecraft.client.renderer.RenderType.cutout()
+            );
+        });
     }
 
     public void onClientTick(net.neoforged.neoforge.client.event.ClientTickEvent.Post event) {

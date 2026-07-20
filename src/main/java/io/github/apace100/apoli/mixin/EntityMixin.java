@@ -64,15 +64,68 @@ public abstract class EntityMixin implements MovingEntity, SubmergableEntity {
     @Shadow protected Object2DoubleMap<TagKey<Fluid>> fluidHeight;
 
     @Shadow public abstract boolean isSwimming();
+    @Shadow public abstract void resetFallDistance();
+    @Shadow public abstract BlockPos blockPosition();
+
+    @Inject(method = "updateInWaterStateAndDoWaterCurrentPushing", at = @At("HEAD"))
+    private void makeEntitiesIgnoreWaterResetFall(CallbackInfo ci) {
+        if (PowerHolderComponent.hasPower((Entity)(Object)this, IgnoreWaterPower.class)) {
+            if (this.level.getFluidState(this.blockPosition()).is(FluidTags.WATER) || this.level.getFluidState(this.blockPosition().above()).is(FluidTags.WATER)) {
+                this.resetFallDistance();
+            }
+        }
+    }
 
     @Inject(method = "isInWater", at = @At("HEAD"), cancellable = true)
     private void makeEntitiesIgnoreWater(CallbackInfoReturnable<Boolean> cir) {
         if(PowerHolderComponent.hasPower((Entity)(Object)this, IgnoreWaterPower.class)) {
-            if(this instanceof WaterMovingEntity) {
-                if(((WaterMovingEntity)this).isInMovementPhase()) {
-                    cir.setReturnValue(false);
-                }
+            cir.setReturnValue(false);
+        }
+    }
+
+    @Inject(method = "isUnderWater", at = @At("HEAD"), cancellable = true)
+    private void makeEntitiesIgnoreWaterUnder(CallbackInfoReturnable<Boolean> cir) {
+        if(PowerHolderComponent.hasPower((Entity)(Object)this, IgnoreWaterPower.class)) {
+            cir.setReturnValue(false);
+        }
+    }
+
+    @Inject(method = "canStartSwimming", at = @At("HEAD"), cancellable = true)
+    private void makeEntitiesIgnoreWaterCanStartSwimming(CallbackInfoReturnable<Boolean> cir) {
+        if(PowerHolderComponent.hasPower((Entity)(Object)this, IgnoreWaterPower.class)) {
+            cir.setReturnValue(false);
+        }
+    }
+
+    @Inject(method = "canSwimInFluidType", at = @At("HEAD"), cancellable = true)
+    private void makeEntitiesIgnoreWaterCanSwimInFluidType(net.neoforged.neoforge.fluids.FluidType type, CallbackInfoReturnable<Boolean> cir) {
+        if(PowerHolderComponent.hasPower((Entity)(Object)this, IgnoreWaterPower.class)) {
+            if (type != net.neoforged.neoforge.common.NeoForgeMod.LAVA_TYPE.value()) {
+                cir.setReturnValue(false);
             }
+        }
+    }
+
+    @Inject(method = "isPushedByFluid", at = @At("HEAD"), cancellable = true)
+    private void makeEntitiesIgnoreWaterPushedByFluid(CallbackInfoReturnable<Boolean> cir) {
+        if(PowerHolderComponent.hasPower((Entity)(Object)this, IgnoreWaterPower.class) && !((Entity)(Object)this).isInLava()) {
+            cir.setReturnValue(false);
+        }
+    }
+
+    @Inject(method = "getFluidTypeHeight", at = @At("HEAD"), cancellable = true)
+    private void makeEntitiesIgnoreWaterFluidTypeHeight(net.neoforged.neoforge.fluids.FluidType type, CallbackInfoReturnable<Double> cir) {
+        if(PowerHolderComponent.hasPower((Entity)(Object)this, IgnoreWaterPower.class)) {
+            if (type != net.neoforged.neoforge.common.NeoForgeMod.LAVA_TYPE.value()) {
+                cir.setReturnValue(0.0D);
+            }
+        }
+    }
+
+    @Inject(method = "getMaxHeightFluidType", at = @At("HEAD"), cancellable = true)
+    private void makeEntitiesIgnoreWaterMaxHeightFluidType(CallbackInfoReturnable<net.neoforged.neoforge.fluids.FluidType> cir) {
+        if(PowerHolderComponent.hasPower((Entity)(Object)this, IgnoreWaterPower.class) && !((Entity)(Object)this).isInLava()) {
+            cir.setReturnValue(net.neoforged.neoforge.common.NeoForgeMod.EMPTY_TYPE.value());
         }
     }
 

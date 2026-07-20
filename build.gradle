@@ -209,5 +209,6 @@ tasks.register('printAttributes') {
 }
 
 tasks.named('jar', Jar) {
-    exclude("net/fabricmc/**")
+    // Keep the shim Event/EventFactory classes (net/fabricmc/fabric/api/event/)
+    // that integration callbacks depend on at runtime
 }
