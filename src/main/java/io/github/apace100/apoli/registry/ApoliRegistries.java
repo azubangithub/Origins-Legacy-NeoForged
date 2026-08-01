@@ -28,13 +28,11 @@ import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import net.neoforged.neoforge.registries.NeoForgeRegistries;
 import net.neoforged.neoforge.registries.NewRegistryEvent;
-import net.neoforged.neoforge.registries.RegistryBuilder;
 import org.apache.commons.lang3.tuple.Triple;
 
 import net.minecraft.nbt.CompoundTag;
 import java.util.function.Supplier;
 
-@EventBusSubscriber(modid = io.github.apace100.origins.Origins.MODID, bus = EventBusSubscriber.Bus.MOD)
 public class ApoliRegistries {
 
     public static final DeferredRegister<AttachmentType<?>> ATTACHMENT_TYPES = DeferredRegister.create(NeoForgeRegistries.Keys.ATTACHMENT_TYPES, Apoli.MODID);
@@ -106,30 +104,26 @@ public class ApoliRegistries {
     public static final Registry<ActionFactory<Tuple<Entity, Entity>>> BIENTITY_ACTION = new net.minecraft.core.MappedRegistry<>(BIENTITY_ACTION_KEY, com.mojang.serialization.Lifecycle.stable(), false);
     public static final Registry<IModifierOperation> MODIFIER_OPERATION = new net.minecraft.core.MappedRegistry<>(MODIFIER_OPERATION_KEY, com.mojang.serialization.Lifecycle.stable(), false);
 
-    @SubscribeEvent
-    public static void onNewRegistry(NewRegistryEvent event) {
-event.register(        POWER_FACTORY);
-event.register(        ENTITY_CONDITION);
-event.register(        BIENTITY_CONDITION);
-event.register(        ITEM_CONDITION);
-event.register(        BLOCK_CONDITION);
-event.register(        DAMAGE_CONDITION);
-event.register(        FLUID_CONDITION);
-event.register(        BIOME_CONDITION);
-event.register(        ENTITY_ACTION);
-event.register(        ITEM_ACTION);
-event.register(        BLOCK_ACTION);
-event.register(        BIENTITY_ACTION);
-event.register(        MODIFIER_OPERATION);
-    }
-
     public static void register(IEventBus modBus) {
         ATTACHMENT_TYPES.register(modBus);
         ARGUMENT_TYPES.register(modBus);
         RECIPE_SERIALIZERS.register(modBus);
         ApoliAttributes.ATTRIBUTES.register(modBus);
+        modBus.addListener((NewRegistryEvent event) -> {
+            event.register(POWER_FACTORY);
+            event.register(ENTITY_CONDITION);
+            event.register(BIENTITY_CONDITION);
+            event.register(ITEM_CONDITION);
+            event.register(BLOCK_CONDITION);
+            event.register(DAMAGE_CONDITION);
+            event.register(FLUID_CONDITION);
+            event.register(BIOME_CONDITION);
+            event.register(ENTITY_ACTION);
+            event.register(ITEM_ACTION);
+            event.register(BLOCK_ACTION);
+            event.register(BIENTITY_ACTION);
+            event.register(MODIFIER_OPERATION);
+        });
         PowerHolderComponent.KEY.setAttachmentSupplier(POWER_HOLDER);
     }
 }
-
-

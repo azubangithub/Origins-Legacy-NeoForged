@@ -26,7 +26,6 @@ import java.util.LinkedList;
 import java.util.List;
 
 @OnlyIn(Dist.CLIENT)
-@EventBusSubscriber(modid = io.github.apace100.origins.Origins.MODID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.MOD)
 public class ApoliClient  {
 
 	public static boolean shouldReloadWorldRenderer = false;
@@ -39,14 +38,6 @@ public class ApoliClient  {
 		idToKeyBindingMap.put(keyId, keyBinding);
 	}
 
-	@SubscribeEvent
-	public static void onRegister(net.neoforged.neoforge.registries.RegisterEvent event) {
-		if (event.getRegistryKey().equals(io.github.apace100.apoli.registry.ApoliRegistries.ENTITY_CONDITION_KEY)) {
-			EntityConditionsClient.register();
-		} else if (event.getRegistryKey().equals(io.github.apace100.apoli.registry.ApoliRegistries.ITEM_CONDITION_KEY)) {
-			ItemConditionsClient.register();
-		}
-	}
 
 	public static void init() {
 		ApoliClassDataClient.registerAll();

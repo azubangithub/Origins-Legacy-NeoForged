@@ -15,6 +15,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.neoforged.neoforge.network.PacketDistributor;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -130,18 +131,27 @@ public interface PowerHolderComponent {
     }
 
     static <T extends ValueModifyingPower> double modify(Entity entity, Class<T> powerClass, double baseValue, Predicate<T> powerFilter, Consumer<T> powerAction) {
-        if(entity instanceof LivingEntity living) {
+        if (entity instanceof LivingEntity living) {
             PowerHolderComponent powerHolder = PowerHolderComponent.KEY.get(entity);
             List<T> powers = powerHolder.getPowers(powerClass);
-            List<Modifier> mps = powers.stream()
-                .filter(p -> powerFilter == null || powerFilter.test(p))
-                .flatMap(p -> p.getModifiers().stream()).collect(Collectors.toList());
-            if(powerAction != null) {
-                powers.stream().filter(p -> powerFilter == null || powerFilter.test(p)).forEach(powerAction);
+            List<Modifier> mps = new ArrayList<>();
+            for (int i = 0; i < powers.size(); i++) {
+                T power = powers.get(i);
+                if (powerFilter == null || powerFilter.test(power)) {
+                    mps.addAll(power.getModifiers());
+                    if (powerAction != null) {
+                        powerAction.accept(power);
+                    }
+                }
             }
 
-            powerHolder.getPowers(AttributeModifyTransferPower.class).stream()
-                .filter(p -> p.doesApply(powerClass)).forEach(p -> p.addModifiers(mps));
+            List<AttributeModifyTransferPower> transferPowers = powerHolder.getPowers(AttributeModifyTransferPower.class);
+            for (int i = 0; i < transferPowers.size(); i++) {
+                AttributeModifyTransferPower transferPower = transferPowers.get(i);
+                if (transferPower.doesApply(powerClass)) {
+                    transferPower.addModifiers(mps);
+                }
+            }
             ModifyValueCallback.EVENT.invoker().collectModifiers(living, powerClass, baseValue, mps);
             return ModifierUtil.applyModifiers(entity, mps, baseValue);
         }

@@ -3,8 +3,8 @@ package io.github.apace100.origins.integration;
 import io.github.apace100.apoli.integration.PostPowerReloadCallback;
 import io.github.apace100.apoli.power.PowerType;
 import io.github.apace100.origins.badge.Badge;
-import net.fabricmc.fabric.api.event.Event;
-import net.fabricmc.fabric.api.event.EventFactory;
+import io.github.apace100.apoli.util.Event;
+import io.github.apace100.apoli.util.EventFactory;
 import net.minecraft.resources.ResourceLocation;
 import java.util.List;
 

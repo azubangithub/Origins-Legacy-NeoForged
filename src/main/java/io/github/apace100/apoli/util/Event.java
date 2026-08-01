@@ -1,4 +1,4 @@
-package net.fabricmc.fabric.api.event;
+package io.github.apace100.apoli.util;
 
 import java.lang.reflect.Array;
 import java.util.concurrent.CopyOnWriteArrayList;

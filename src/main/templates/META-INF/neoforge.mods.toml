@@ -39,3 +39,17 @@ config="calio.mixins.json"
     versionRange="${minecraft_version_range}"
     ordering="NONE"
     side="BOTH"
+
+# Module aliases / provided mods
+[[provides.${mod_id}]]
+    modId="apoli"
+    version="${mod_version}"
+
+[[provides.${mod_id}]]
+    modId="calio"
+    version="${mod_version}"
+
+[[provides.${mod_id}]]
+    modId="origins_legacy"
+    version="${mod_version}"
+

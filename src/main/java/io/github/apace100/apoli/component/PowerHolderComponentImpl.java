@@ -71,10 +71,13 @@ public class PowerHolderComponentImpl implements PowerHolderComponent, INBTSeria
     @Override
     @SuppressWarnings("unchecked")
     public <T extends Power> List<T> getPowers(Class<T> powerClass, boolean includeInactive) {
-        List<T> list = new LinkedList<>();
-        for(Power power : powers.values()) {
-            if(powerClass.isAssignableFrom(power.getClass()) && (includeInactive || power.isActive())) {
-                list.add((T)power);
+        if (powers.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<T> list = new ArrayList<>();
+        for (Power power : powers.values()) {
+            if (powerClass.isAssignableFrom(power.getClass()) && (includeInactive || power.isActive())) {
+                list.add((T) power);
             }
         }
         return list;

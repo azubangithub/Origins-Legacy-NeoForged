@@ -2,8 +2,8 @@ package io.github.apace100.apoli.integration;
 
 import io.github.apace100.apoli.power.ValueModifyingPower;
 import io.github.apace100.apoli.util.modifier.Modifier;
-import net.fabricmc.fabric.api.event.Event;
-import net.fabricmc.fabric.api.event.EventFactory;
+import io.github.apace100.apoli.util.Event;
+import io.github.apace100.apoli.util.EventFactory;
 import net.minecraft.world.entity.LivingEntity;
 
 import java.util.List;

@@ -11,7 +11,6 @@ import io.github.apace100.apoli.power.*;
 import io.github.apace100.apoli.util.ApoliSharedMixinValues;
 import io.github.apace100.apoli.util.modifier.ModifierUtil;
 import net.minecraft.network.protocol.game.ClientboundSetHealthPacket;
-// import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.commands.CommandSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;

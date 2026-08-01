@@ -6,7 +6,6 @@
   "mixins": [
     "AbstractBlockMixin",
     "AbstractBlockStateMixin",
-    "ArgumentTypesMixin",
     "BiomeBuilderMixin",
     "BiomeMixin",
     "BlockItemMixin",

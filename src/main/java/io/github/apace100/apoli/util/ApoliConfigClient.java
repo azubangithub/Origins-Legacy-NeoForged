@@ -58,9 +58,11 @@ public class ApoliConfigClient extends ApoliConfig {
     /** Refresh POJO fields from the live config spec values */
     public void syncClientFromSpec() {
         syncFromSpec();
-        resourcesAndCooldowns.hudOffsetX = CLIENT.hudOffsetX.get();
-        resourcesAndCooldowns.hudOffsetY = CLIENT.hudOffsetY.get();
-        tooltips.showUsabilityHints = CLIENT.showUsabilityHints.get();
-        tooltips.compactUsabilityHints = CLIENT.compactUsabilityHints.get();
+        if (CLIENT_SPEC != null && CLIENT_SPEC.isLoaded()) {
+            resourcesAndCooldowns.hudOffsetX = CLIENT.hudOffsetX.get();
+            resourcesAndCooldowns.hudOffsetY = CLIENT.hudOffsetY.get();
+            tooltips.showUsabilityHints = CLIENT.showUsabilityHints.get();
+            tooltips.compactUsabilityHints = CLIENT.compactUsabilityHints.get();
+        }
     }
 }

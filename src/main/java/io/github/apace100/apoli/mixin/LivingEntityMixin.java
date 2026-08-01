@@ -15,8 +15,6 @@ import io.github.apace100.apoli.power.*;
 import io.github.apace100.apoli.util.InventoryUtil;
 import io.github.apace100.apoli.util.StackPowerUtil;
 import io.github.apace100.apoli.util.SyncStatusEffectsUtil;
-// import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
-// import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.resources.ResourceLocation;

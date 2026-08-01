@@ -1,4 +1,4 @@
-package net.fabricmc.fabric.api.event;
+package io.github.apace100.apoli.util;
 
 import java.util.function.Function;
 

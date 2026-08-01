@@ -72,69 +72,9 @@ public class CarpetSettingsMixin {
 
                 return new MockNeoForgeModContainer((net.neoforged.neoforgespi.language.IModInfo) mockModInfo);
             } catch (ClassNotFoundException e) {
-                // Not on NeoForge, try Fabric
+                // Not on NeoForge
+                return null;
             }
-
-            Class<?> modContainerClass = Class.forName("net.fabricmc.loader.api.ModContainer");
-            Class<?> modMetadataClass = Class.forName("net.fabricmc.loader.api.metadata.ModMetadata");
-            Class<?> versionClass = Class.forName("net.fabricmc.loader.api.Version");
-
-            Object mockVersion = Proxy.newProxyInstance(
-                versionClass.getClassLoader(),
-                new Class<?>[] { versionClass },
-                new InvocationHandler() {
-                    @Override
-                    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-                        if (method.getName().equals("getFriendlyString")) {
-                            return "1.4.147+v1.0.8-251027";
-                        }
-                        if (method.getName().equals("toString")) {
-                            return "1.4.147+v1.0.8-251027";
-                        }
-                        return null;
-                    }
-                }
-            );
-
-            Object mockMetadata = Proxy.newProxyInstance(
-                modMetadataClass.getClassLoader(),
-                new Class<?>[] { modMetadataClass },
-                new InvocationHandler() {
-                    @Override
-                    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-                        switch (method.getName()) {
-                            case "getId":
-                                return "carpet";
-                            case "getVersion":
-                                return mockVersion;
-                            case "getName":
-                                return "Carpet";
-                            case "toString":
-                                return "Carpet Metadata Proxy";
-                            default:
-                                return null;
-                        }
-                    }
-                }
-            );
-
-            return Proxy.newProxyInstance(
-                modContainerClass.getClassLoader(),
-                new Class<?>[] { modContainerClass },
-                new InvocationHandler() {
-                    @Override
-                    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-                        switch (method.getName()) {
-                            case "getMetadata":
-                                return mockMetadata;
-                            case "toString":
-                                return "Carpet ModContainer Proxy";
-                            default:
-                                return null;
-                        }
-                    }
-                }
-            );
         } catch (Exception e) {
             e.printStackTrace();
             return null;

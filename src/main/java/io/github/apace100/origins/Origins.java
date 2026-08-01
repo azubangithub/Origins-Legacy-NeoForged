@@ -36,20 +36,22 @@ public class Origins {
         modBus = modEventBus;
 
         // Parse version
-        ModList.get().getModContainerById(MODID).ifPresent(container -> {
-            VERSION = container.getModInfo().getVersion().toString();
-            if (VERSION.contains("+")) {
-                VERSION = VERSION.split("\\+")[0];
-            }
-            if (VERSION.contains("-")) {
-                VERSION = VERSION.split("-")[0];
-            }
-            String[] splitVersion = VERSION.split("\\.");
-            SEMVER = new int[splitVersion.length];
-            for (int i = 0; i < SEMVER.length; i++) {
+        VERSION = modContainer.getModInfo().getVersion().toString();
+        if (VERSION.contains("+")) {
+            VERSION = VERSION.split("\\+")[0];
+        }
+        if (VERSION.contains("-")) {
+            VERSION = VERSION.split("-")[0];
+        }
+        String[] splitVersion = VERSION.split("\\.");
+        SEMVER = new int[splitVersion.length];
+        for (int i = 0; i < SEMVER.length; i++) {
+            try {
                 SEMVER[i] = Integer.parseInt(splitVersion[i]);
+            } catch (NumberFormatException ignored) {
+                SEMVER[i] = 0;
             }
-        });
+        }
         LOGGER.info("Origins " + VERSION + " is initializing on NeoForge. Have fun!");
 
         // Phase 2: Register Calio subsystem
@@ -57,7 +59,7 @@ public class Origins {
 
         // Phase 3/4: Register Apoli subsystem
         io.github.apace100.apoli.registry.ApoliRegistries.register(modBus);
-        io.github.apace100.apoli.Apoli.onInitialize(modBus);
+        io.github.apace100.apoli.Apoli.onInitialize(modBus, modContainer);
 
         // Map origins:xxx powers to apoli:xxx powers
         io.github.apace100.apoli.util.NamespaceAlias.addAlias("origins", "apoli");

@@ -48,14 +48,29 @@ public class Apoli implements OrderedResourceListenerInitializer {
 
 	public static final boolean PERFORM_VERSION_CHECK = false;
 
-	public static void onInitialize(net.neoforged.bus.api.IEventBus modBus) {
+	public static void onInitialize(net.neoforged.bus.api.IEventBus modBus, net.neoforged.fml.ModContainer modContainer) {
 		// Register configs
-		net.neoforged.fml.ModList.get().getModContainerById(io.github.apace100.origins.Origins.MODID).ifPresent(mc -> {
-			mc.registerConfig(net.neoforged.fml.config.ModConfig.Type.COMMON, ApoliConfig.COMMON_SPEC, "apoli-common.toml");
-			mc.registerConfig(net.neoforged.fml.config.ModConfig.Type.CLIENT, ApoliConfigClient.CLIENT_SPEC, "apoli-client.toml");
-		});
+		modContainer.registerConfig(net.neoforged.fml.config.ModConfig.Type.COMMON, ApoliConfig.COMMON_SPEC, "apoli-common.toml");
+		modContainer.registerConfig(net.neoforged.fml.config.ModConfig.Type.CLIENT, ApoliConfigClient.CLIENT_SPEC, "apoli-client.toml");
+
 		ApoliConfigClient clientConfig = new ApoliConfigClient();
 		config = clientConfig;
+
+		modBus.addListener((net.neoforged.fml.event.config.ModConfigEvent.Loading event) -> {
+			if (event.getConfig().getSpec() == ApoliConfigClient.CLIENT_SPEC) {
+				clientConfig.syncClientFromSpec();
+			} else if (event.getConfig().getSpec() == ApoliConfig.COMMON_SPEC) {
+				Apoli.config.syncFromSpec();
+			}
+		});
+
+		modBus.addListener((net.neoforged.fml.event.config.ModConfigEvent.Reloading event) -> {
+			if (event.getConfig().getSpec() == ApoliConfigClient.CLIENT_SPEC) {
+				clientConfig.syncClientFromSpec();
+			} else if (event.getConfig().getSpec() == ApoliConfig.COMMON_SPEC) {
+				Apoli.config.syncFromSpec();
+			}
+		});
 
 		ModPackets.init();
 		net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStartedEvent event) -> {
@@ -63,20 +78,22 @@ public class Apoli implements OrderedResourceListenerInitializer {
 			clientConfig.syncFromSpec();
 		});
 
-		net.neoforged.fml.ModList.get().getModContainerById(io.github.apace100.origins.Origins.MODID).ifPresent(modContainer -> {
-			VERSION = modContainer.getModInfo().getVersion().toString();
-			if(VERSION.contains("+")) {
-				VERSION = VERSION.split("\\+")[0];
-			}
-			if(VERSION.contains("-")) {
-				VERSION = VERSION.split("-")[0];
-			}
-			String[] splitVersion = VERSION.split("\\.");
-			SEMVER = new int[splitVersion.length];
-			for(int i = 0; i < SEMVER.length; i++) {
+		VERSION = modContainer.getModInfo().getVersion().toString();
+		if(VERSION.contains("+")) {
+			VERSION = VERSION.split("\\+")[0];
+		}
+		if(VERSION.contains("-")) {
+			VERSION = VERSION.split("-")[0];
+		}
+		String[] splitVersion = VERSION.split("\\.");
+		SEMVER = new int[splitVersion.length];
+		for(int i = 0; i < SEMVER.length; i++) {
+			try {
 				SEMVER[i] = Integer.parseInt(splitVersion[i]);
+			} catch (NumberFormatException ignored) {
+				SEMVER[i] = 0;
 			}
-		});
+		}
 
 		ModPacketsC2S.register();
 
@@ -105,9 +122,10 @@ public class Apoli implements OrderedResourceListenerInitializer {
 		if (net.neoforged.fml.loading.FMLEnvironment.dist == net.neoforged.api.distmarker.Dist.CLIENT) {
 			EntityConditionsClient.register();
 			ItemConditionsClient.register();
+		} else {
+			EntityConditionsServer.register();
+			ItemConditionsServer.register();
 		}
-		EntityConditionsServer.register();
-		ItemConditionsServer.register();
 
 		// Wire up the OrderedResourceListenerManager (replaces Fabric entrypoint system)
 		OrderedResourceListenerManager manager = new OrderedResourceListenerManager();

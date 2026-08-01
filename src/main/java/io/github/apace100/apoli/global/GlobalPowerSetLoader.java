@@ -6,8 +6,6 @@ import com.google.gson.JsonElement;
 import io.github.apace100.apoli.Apoli;
 import io.github.apace100.apoli.power.PowerType;
 import io.github.apace100.calio.data.SerializableData;
-// import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
-// import net.fabricmc.fabric.api.resource.IdentifiableResourceReloadListener;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;

@@ -2,8 +2,8 @@ package io.github.apace100.apoli.integration;
 
 import com.google.gson.JsonObject;
 import io.github.apace100.apoli.power.PowerType;
-import net.fabricmc.fabric.api.event.Event;
-import net.fabricmc.fabric.api.event.EventFactory;
+import io.github.apace100.apoli.util.Event;
+import io.github.apace100.apoli.util.EventFactory;
 import net.minecraft.resources.ResourceLocation;
 
 /**

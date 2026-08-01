@@ -1,7 +1,7 @@
 package io.github.apace100.origins.integration;
 
-import net.fabricmc.fabric.api.event.Event;
-import net.fabricmc.fabric.api.event.EventFactory;
+import io.github.apace100.apoli.util.Event;
+import io.github.apace100.apoli.util.EventFactory;
 
 /**
  * Callback which is called when all of Origins data is loaded.<br>

@@ -46,6 +46,18 @@ public class InventoryUtil {
         }
     }
 
+    private static int[] ALL_SLOT_IDS;
+
+    public static int[] getAllSlotIds() {
+        if (ALL_SLOT_IDS == null) {
+            ALL_SLOT_IDS = SlotRanges.allNames()
+                .flatMapToInt(s -> SlotRanges.nameToIds(s).slots().intStream())
+                .distinct()
+                .toArray();
+        }
+        return ALL_SLOT_IDS;
+    }
+
     public static Set<Integer> getSlots(SerializableData.Instance data) {
 
         Set<Integer> slots = new HashSet<>();
@@ -53,7 +65,11 @@ public class InventoryUtil {
         data.<ArgumentWrapper<Integer>>ifPresent("slot", iaw -> slots.add(iaw.get()));
         data.<List<ArgumentWrapper<Integer>>>ifPresent("slots", iaws -> slots.addAll(iaws.stream().map(ArgumentWrapper::get).toList()));
 
-        if (slots.isEmpty()) slots.addAll(SlotRanges.allNames().flatMap(s -> SlotRanges.nameToIds(s).slots().stream()).toList());
+        if (slots.isEmpty()) {
+            for (int id : getAllSlotIds()) {
+                slots.add(id);
+            }
+        }
 
         return slots;
 
@@ -357,30 +373,29 @@ public class InventoryUtil {
     }
 
     public static void forEachStack(Entity entity, Consumer<ItemStack> itemStackConsumer) {
-        SlotRanges.allNames().flatMapToInt(s -> SlotRanges.nameToIds(s).slots().intStream()).distinct().forEach(slot -> {
-            SlotAccess stackReference = entity.getSlot(slot);
+        int[] slotIds = getAllSlotIds();
+        for (int i = 0; i < slotIds.length; i++) {
+            SlotAccess stackReference = entity.getSlot(slotIds[i]);
             if (stackReference != SlotAccess.NULL) {
                 ItemStack itemStack = stackReference.get();
                 if (!itemStack.isEmpty()) {
                     itemStackConsumer.accept(itemStack);
                 }
             }
-        });
+        }
 
-        Optional<PowerHolderComponent> optionalPowerHolderComponent = PowerHolderComponent.KEY.maybeGet(entity);
-        if(optionalPowerHolderComponent.isPresent()) {
-            PowerHolderComponent phc = optionalPowerHolderComponent.get();
+        PowerHolderComponent.KEY.maybeGet(entity).ifPresent(phc -> {
             List<InventoryPower> inventoryPowers = phc.getPowers(InventoryPower.class);
-            for(InventoryPower inventoryPower : inventoryPowers) {
-                for(int index = 0; index < inventoryPower.getContainerSize(); index++) {
+            for (int i = 0; i < inventoryPowers.size(); i++) {
+                InventoryPower inventoryPower = inventoryPowers.get(i);
+                for (int index = 0; index < inventoryPower.getContainerSize(); index++) {
                     ItemStack stack = inventoryPower.getItem(index);
-                    if(stack.isEmpty()) {
-                        continue;
+                    if (!stack.isEmpty()) {
+                        itemStackConsumer.accept(stack);
                     }
-                    itemStackConsumer.accept(stack);
                 }
             }
-        }
+        });
     }
 
     private static void deduplicateSlots(Entity entity, Set<Integer> slots) {

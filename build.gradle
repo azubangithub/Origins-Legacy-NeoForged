@@ -209,6 +209,16 @@ tasks.register('printAttributes') {
 }
 
 tasks.named('jar', Jar) {
-    // Keep the shim Event/EventFactory classes (net/fabricmc/fabric/api/event/)
-    // that integration callbacks depend on at runtime
+    manifest {
+        attributes([
+            "Specification-Title"     : mod_id,
+            "Specification-Vendor"    : "Origins",
+            "Specification-Version"   : "1",
+            "Implementation-Title"    : mod_name,
+            "Implementation-Version"  : mod_version,
+            "Implementation-Vendor"   : "Origins",
+            "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
+            "MixinConfigs"            : "origins.mixins.json,apoli.mixins.json,calio.mixins.json"
+        ])
+    }
 }

@@ -40,7 +40,9 @@ public class ApoliConfig {
 
     /** Refresh POJO fields from the live config spec values */
     public void syncFromSpec() {
-        executeCommand.permissionLevel = COMMON.executeCommandPermissionLevel.get();
-        executeCommand.showOutput = COMMON.executeCommandShowOutput.get();
+        if (COMMON_SPEC != null && COMMON_SPEC.isLoaded()) {
+            executeCommand.permissionLevel = COMMON.executeCommandPermissionLevel.get();
+            executeCommand.showOutput = COMMON.executeCommandShowOutput.get();
+        }
     }
 }
