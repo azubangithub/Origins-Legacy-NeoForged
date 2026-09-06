@@ -216,18 +216,18 @@ public class PowerCommand {
 
 		if (!processedLivingTargets.isEmpty()) {
 			final int currentRevokedPowers = revokedPowers;
-			if (processedLivingTargets.size() == 1) source.sendSuccess(() -> Component.translatable("commands.apoli.revoke_all.success.single", processedLivingTargets.getFirst().getDisplayName(), currentRevokedPowers, powerSource.toString()), true);
-			else source.sendSuccess(() -> Component.translatable("commands.apoli.revoke_all.success.multiple", processedLivingTargets.size(), currentRevokedPowers, powerSource.toString()), true);
+			if (processedLivingTargets.size() == 1) source.sendSuccess(() -> Component.translatable("commands.apoli.revoke_all.success.single", processedLivingTargets.getFirst().getDisplayName(), currentRevokedPowers, Component.translationArg(powerSource)), true);
+			else source.sendSuccess(() -> Component.translatable("commands.apoli.revoke_all.success.multiple", processedLivingTargets.size(), currentRevokedPowers, Component.translationArg(powerSource)), true);
 		}
 
 		else if (!livingTargets.isEmpty()) {
-			if (livingTargets.size() == 1) source.sendFailure(Component.translatable("commands.apoli.revoke_all.fail.single", livingTargets.getFirst().getDisplayName(), powerSource.toString()));
-			else source.sendFailure(Component.translatable("commands.apoli.revoke_all.fail.multiple", powerSource.toString()));
+			if (livingTargets.size() == 1) source.sendFailure(Component.translatable("commands.apoli.revoke_all.fail.single", livingTargets.getFirst().getDisplayName(), Component.translationArg(powerSource)));
+			else source.sendFailure(Component.translatable("commands.apoli.revoke_all.fail.multiple", Component.translationArg(powerSource)));
 		}
 
 		else if (!nonLivingTargets.isEmpty()) {
-			if (nonLivingTargets.size() == 1) source.sendFailure(Component.translatable("commands.apoli.revoke_all.invalid_entity", nonLivingTargets.getFirst().getDisplayName(), powerSource.toString()));
-			else source.sendFailure(Component.translatable("commands.apoli.revoke_all.invalid_entities", nonLivingTargets.size(), powerSource.toString()));
+			if (nonLivingTargets.size() == 1) source.sendFailure(Component.translatable("commands.apoli.revoke_all.invalid_entity", nonLivingTargets.getFirst().getDisplayName(), Component.translationArg(powerSource)));
+			else source.sendFailure(Component.translatable("commands.apoli.revoke_all.invalid_entities", nonLivingTargets.size(), Component.translationArg(powerSource)));
 		}
 
 		return processedLivingTargets.size();

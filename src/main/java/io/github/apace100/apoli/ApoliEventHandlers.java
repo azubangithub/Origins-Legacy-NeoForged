@@ -36,19 +36,58 @@ public class ApoliEventHandlers {
     @SubscribeEvent
     public static void onLivingBreathe(LivingBreatheEvent event) {
         LivingEntity entity = event.getEntity();
-        PowerHolderComponent.KEY.maybeGet(entity).ifPresent(phc -> {
-            if (phc.hasPower(io.github.apace100.origins.power.OriginsPowerTypes.WATER_BREATHING)) {
-                boolean isInWater = entity.isEyeInFluid(net.minecraft.tags.FluidTags.WATER);
-                event.setCanBreathe(isInWater);
-                if (isInWater) {
-                    // Refill air when in water
-                    event.setRefillAirAmount(4);
-                } else {
-                    // Drain air on land
-                    event.setConsumeAirAmount(1);
+        if (PowerHolderComponent.hasPower(entity, io.github.apace100.apoli.power.IgnoreWaterPower.class)) {
+            event.setCanBreathe(true);
+            event.setRefillAirAmount(4);
+            return;
+        }
+        if (io.github.apace100.origins.power.OriginsPowerTypes.WATER_BREATHING.isActive(entity)) {
+            boolean isInWater = entity.isEyeInFluid(net.minecraft.tags.FluidTags.WATER);
+            boolean hasWaterBreathingEffect = entity.hasEffect(net.minecraft.world.effect.MobEffects.WATER_BREATHING)
+                    || entity.hasEffect(net.minecraft.world.effect.MobEffects.CONDUIT_POWER);
+            boolean isInRain = ((io.github.apace100.apoli.mixin.EntityAccessor) entity).callIsInRain();
+
+            if (isInWater || hasWaterBreathingEffect) {
+                event.setCanBreathe(true);
+                event.setRefillAirAmount(4);
+            } else if (isInRain) {
+                // In rain, Merlings do not suffocate, but do not refill air
+                event.setCanBreathe(true);
+                event.setRefillAirAmount(0);
+            } else {
+                // On land: cannot breathe, consume 1 air per tick
+                event.setCanBreathe(false);
+                event.setConsumeAirAmount(1);
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public static void onLivingDrown(net.neoforged.neoforge.event.entity.living.LivingDrownEvent event) {
+        LivingEntity entity = event.getEntity();
+        if (PowerHolderComponent.hasPower(entity, io.github.apace100.apoli.power.IgnoreWaterPower.class)) {
+            event.setCanceled(true);
+            event.setDrowning(false);
+            return;
+        }
+        if (io.github.apace100.origins.power.OriginsPowerTypes.WATER_BREATHING.isActive(entity) && !entity.isEyeInFluid(net.minecraft.tags.FluidTags.WATER)) {
+            event.setCanceled(true);
+            if (event.isDrowning()) {
+                entity.setAirSupply(0);
+
+                net.minecraft.world.phys.Vec3 vec3 = entity.getDeltaMovement();
+                for (int i = 0; i < event.getBubbleCount(); ++i) {
+                    double d2 = entity.getRandom().nextDouble() - entity.getRandom().nextDouble();
+                    double d3 = entity.getRandom().nextDouble() - entity.getRandom().nextDouble();
+                    double d4 = entity.getRandom().nextDouble() - entity.getRandom().nextDouble();
+                    entity.level().addParticle(net.minecraft.core.particles.ParticleTypes.BUBBLE, entity.getX() + d2, entity.getY() + d3, entity.getZ() + d4, vec3.x, vec3.y, vec3.z);
+                }
+
+                if (event.getDamageAmount() > 0 && !entity.level().isClientSide) {
+                    entity.hurt(io.github.apace100.origins.registry.ModDamageSources.getSource(entity.level().registryAccess(), io.github.apace100.origins.registry.ModDamageSources.NO_WATER_FOR_GILLS), event.getDamageAmount());
                 }
             }
-        });
+        }
     }
 
     @SubscribeEvent

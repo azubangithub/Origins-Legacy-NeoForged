@@ -15,6 +15,8 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.NbtUtils;
+import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.ItemTags;
@@ -23,12 +25,14 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.Equipable;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.component.ItemAttributeModifiers;
 import net.minecraft.world.item.component.Tool;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.block.Block;
 
 import java.util.List;
+import java.util.Objects;
 
 public class ItemConditions {
 
@@ -105,16 +109,42 @@ public class ItemConditions {
             (data, stack) -> stack.has(DataComponents.FOOD) && stack.is(ItemTags.MEAT)));
         register(new ConditionFactory<>(Apoli.identifier("nbt"), new SerializableData()
             .add("nbt", SerializableDataTypes.NBT), (data, stack) -> {
-            CompoundTag oldTag = data.get("nbt");
-            CompoundTag recreatedTag = new CompoundTag();
-            recreatedTag.putString("id", BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
-            recreatedTag.putInt("Count", stack.getCount());
-            recreatedTag.put("tag", oldTag);
+            CompoundTag expectedTag = data.get("nbt");
+            if (expectedTag == null || expectedTag.isEmpty()) {
+                return true;
+            }
+            if (stack.isEmpty()) {
+                return false;
+            }
+            // 1. Match custom datapack NBT stored in CustomData component (e.g. {UdexDuty:1b})
+            CustomData customData = stack.get(DataComponents.CUSTOM_DATA);
+            if (customData != null && (customData.matchedBy(expectedTag) || NbtUtils.compareNbt(expectedTag, customData.copyTag(), true))) {
+                return true;
+            }
+            // 2. Safe fallback: match upgraded item components without throwing on failure
+            try {
+                CompoundTag recreatedTag = new CompoundTag();
+                recreatedTag.putString("id", BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
+                recreatedTag.putInt("Count", stack.getCount());
+                recreatedTag.put("tag", expectedTag);
 
-            var convertedStackNbt = UpgradeUtils.upgradeStack(recreatedTag);
-            var convertedStack = ItemStack.OPTIONAL_CODEC.decode(NbtOps.INSTANCE, convertedStackNbt).getOrThrow().getFirst();
-
-            return convertedStack.getComponentsPatch().equals(stack.getComponentsPatch());
+                Tag convertedStackNbt = UpgradeUtils.upgradeStack(recreatedTag);
+                var result = ItemStack.OPTIONAL_CODEC.decode(NbtOps.INSTANCE, convertedStackNbt).result();
+                if (result.isPresent()) {
+                    ItemStack convertedStack = result.get().getFirst();
+                    boolean allMatch = convertedStack.getComponentsPatch().entrySet().stream().allMatch(entry -> {
+                        if (entry.getValue().isPresent()) {
+                            return Objects.equals(stack.get(entry.getKey()), entry.getValue().get());
+                        }
+                        return !stack.has(entry.getKey());
+                    });
+                    if (allMatch) {
+                        return true;
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+            return false;
         }));
         register(new ConditionFactory<>(Apoli.identifier("fireproof"), new SerializableData(),
             (data, stack) -> stack.has(DataComponents.FIRE_RESISTANT)));

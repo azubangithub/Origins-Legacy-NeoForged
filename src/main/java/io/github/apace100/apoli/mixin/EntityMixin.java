@@ -129,6 +129,13 @@ public abstract class EntityMixin implements MovingEntity, SubmergableEntity {
         }
     }
 
+    @Inject(method = "getEyeInFluidType", at = @At("HEAD"), cancellable = true)
+    private void makeEntitiesIgnoreWaterEyeInFluidType(CallbackInfoReturnable<net.neoforged.neoforge.fluids.FluidType> cir) {
+        if(PowerHolderComponent.hasPower((Entity)(Object)this, IgnoreWaterPower.class) && !((Entity)(Object)this).isInLava()) {
+            cir.setReturnValue(net.neoforged.neoforge.common.NeoForgeMod.EMPTY_TYPE.value());
+        }
+    }
+
     @Inject(method = "checkFallDamage", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/block/Block;fallOn(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/entity/Entity;F)V"))
     private void invokeActionOnLand(CallbackInfo ci) {
         List<ActionOnLandPower> powers = PowerHolderComponent.getPowers((Entity)(Object)this, ActionOnLandPower.class);

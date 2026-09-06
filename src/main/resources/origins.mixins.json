@@ -7,7 +7,9 @@
     "ScareCreepersMixin",
     "ConduitOnLandMixin",
     "LikeWaterMixin",
-    "CarpetSettingsMixin"
+    "CarpetSettingsMixin",
+    "WaterBreathingMixin$CanBreatheInWater",
+    "WaterBreathingMixin$UpdateAir"
   ],
   "client": [
     "GuiGraphicsAccessor"

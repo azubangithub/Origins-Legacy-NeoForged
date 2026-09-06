@@ -48,10 +48,13 @@
     "ServerPlayerInteractionManagerAccessor",
     "ServerPlayerInteractionManagerMixin",
     "ServerPlayNetworkHandlerMixin",
-    "ServerWorldMixin",
     "SlotRangesAccessor",
     "StatusEffectInstanceMixin",
-    "WeightedListEntryAccessor"
+    "WeightedListEntryAccessor",
+    "powers.prevent_game_event.GameEventDispatcherMixin",
+    "loot_table.id.HolderLookupAdapterAccessor",
+    "loot_table.id.LootDataTypeMixin",
+    "loot_table.id.RegistryOpsAccessor"
   ],
   "client": [
     "CapeFeatureRendererMixin",

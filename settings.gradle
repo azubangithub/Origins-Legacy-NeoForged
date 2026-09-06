@@ -10,10 +10,10 @@ plugins {
 
 rootProject.name = 'origins-template-1.21.1'
 
-if (file('cosmetics').exists()) {
-    include 'cosmetics'
-}
-if (file('randomizer').exists()) {
-    include 'randomizer'
-}
+// if (file('cosmetics').exists()) {
+//     include 'cosmetics'
+// }
+// if (file('randomizer').exists()) {
+//     include 'randomizer'
+// }
 

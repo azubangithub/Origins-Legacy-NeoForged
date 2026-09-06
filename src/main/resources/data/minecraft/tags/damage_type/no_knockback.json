@@ -1,6 +1,8 @@
 {
   "replace": false,
   "values": [
-    "origins:hurt_by_water"
+    "origins:hurt_by_water",
+    "origins:no_water_for_gills",
+    "apoli:damage_over_time"
   ]
 }

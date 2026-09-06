@@ -23,6 +23,28 @@ public class ModPacketsC2S {
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(ModPacketsC2S::onPlayerJoin);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(ModPacketsC2S::onPlayerRespawn);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(ModPacketsC2S::onPlayerChangedDimension);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(ModPacketsC2S::onStartTracking);
+    }
+
+    private static void onStartTracking(PlayerEvent.StartTracking event) {
+        if (event.getEntity() instanceof ServerPlayer trackingPlayer) {
+            if (event.getTarget() instanceof net.minecraft.world.entity.player.Player targetPlayer) {
+                OriginComponent component = ModComponents.get(targetPlayer);
+                if (component instanceof io.github.apace100.origins.component.PlayerOriginComponent poc) {
+                    net.minecraft.nbt.CompoundTag nbt = poc.serializeNBT(targetPlayer.level().registryAccess());
+                    PacketDistributor.sendToPlayer(trackingPlayer, new SyncOriginComponentPacket(targetPlayer.getId(), nbt));
+                }
+            }
+            if (event.getTarget() instanceof net.minecraft.world.entity.LivingEntity livingEntity) {
+                io.github.apace100.apoli.component.PowerHolderComponent.KEY.maybeGet(livingEntity).ifPresent(phc -> {
+                    if (phc instanceof io.github.apace100.apoli.component.PowerHolderComponentImpl impl) {
+                        net.minecraft.nbt.CompoundTag nbt = new net.minecraft.nbt.CompoundTag();
+                        impl.writeToNbt(nbt, livingEntity.level().registryAccess());
+                        PacketDistributor.sendToPlayer(trackingPlayer, new io.github.apace100.apoli.networking.SyncPowerComponentPacket(livingEntity.getId(), nbt));
+                    }
+                });
+            }
+        }
     }
 
     private static void onPlayerJoin(PlayerEvent.PlayerLoggedInEvent event) {

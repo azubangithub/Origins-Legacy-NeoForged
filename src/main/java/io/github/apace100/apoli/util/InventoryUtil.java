@@ -8,8 +8,10 @@ import io.github.apace100.calio.data.SerializableData;
 import io.github.apace100.calio.util.ArgumentWrapper;
 import net.minecraft.util.Mth;
 import net.minecraft.util.Tuple;
+import net.minecraft.world.Container;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.SlotAccess;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -373,11 +375,32 @@ public class InventoryUtil {
     }
 
     public static void forEachStack(Entity entity, Consumer<ItemStack> itemStackConsumer) {
-        int[] slotIds = getAllSlotIds();
-        for (int i = 0; i < slotIds.length; i++) {
-            SlotAccess stackReference = entity.getSlot(slotIds[i]);
-            if (stackReference != SlotAccess.NULL) {
-                ItemStack itemStack = stackReference.get();
+        if (entity instanceof Player player) {
+            for (ItemStack itemStack : player.getInventory().items) {
+                if (!itemStack.isEmpty()) {
+                    itemStackConsumer.accept(itemStack);
+                }
+            }
+            for (ItemStack itemStack : player.getInventory().armor) {
+                if (!itemStack.isEmpty()) {
+                    itemStackConsumer.accept(itemStack);
+                }
+            }
+            for (ItemStack itemStack : player.getInventory().offhand) {
+                if (!itemStack.isEmpty()) {
+                    itemStackConsumer.accept(itemStack);
+                }
+            }
+        } else if (entity instanceof LivingEntity living) {
+            for (EquipmentSlot slot : EquipmentSlot.values()) {
+                ItemStack itemStack = living.getItemBySlot(slot);
+                if (!itemStack.isEmpty()) {
+                    itemStackConsumer.accept(itemStack);
+                }
+            }
+        } else if (entity instanceof Container container) {
+            for (int i = 0; i < container.getContainerSize(); i++) {
+                ItemStack itemStack = container.getItem(i);
                 if (!itemStack.isEmpty()) {
                     itemStackConsumer.accept(itemStack);
                 }

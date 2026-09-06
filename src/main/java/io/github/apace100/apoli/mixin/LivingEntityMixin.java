@@ -29,6 +29,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeMap;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
@@ -377,13 +378,17 @@ public abstract class LivingEntityMixin extends Entity implements ModifiableFood
         }
         List<ModifyFallingPower> modifyFallingPowers = PowerHolderComponent.getPowers(this, ModifyFallingPower.class);
         if(modifyFallingPowers.size() > 0) {
-
-            if(modifyFallingPowers.stream().anyMatch(p -> !p.takeFallDamage)) {
-                this.fallDistance = 0;
-            }
             return PowerHolderComponent.modify(this, ModifyFallingPower.class, in);
         }
         return in;
+    }
+
+    @Inject(method = "calculateFallDamage", at = @At("HEAD"), cancellable = true)
+    private void apoli$preventFallDamage(float fallDistance, float damageMultiplier, CallbackInfoReturnable<Integer> cir) {
+        List<ModifyFallingPower> modifyFallingPowers = PowerHolderComponent.getPowers(this, ModifyFallingPower.class);
+        if (modifyFallingPowers.stream().anyMatch(p -> !p.takeFallDamage)) {
+            cir.setReturnValue(0);
+        }
     }
 
     @Inject(method = "getAttributeValue", at = @At("RETURN"), cancellable = true)
@@ -457,13 +462,6 @@ public abstract class LivingEntityMixin extends Entity implements ModifiableFood
 
 
 
-    @Inject(method = "canBreatheUnderwater", at = @At("HEAD"), cancellable = true)
-    private void apoli$canBreatheUnderwater(CallbackInfoReturnable<Boolean> cir) {
-        if (PowerHolderComponent.KEY.get(this).hasPower(io.github.apace100.origins.power.OriginsPowerTypes.WATER_BREATHING)) {
-            cir.setReturnValue(true);
-        }
-    }
-
     @com.llamalad7.mixinextras.injector.ModifyExpressionValue(method = "updateFallFlying", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/ItemStack;canElytraFly(Lnet/minecraft/world/entity/LivingEntity;)Z"))
     private boolean apoli$allowElytraFlight(boolean original) {
         return original || PowerHolderComponent.hasPower((LivingEntity) (Object) this, ElytraFlightPower.class);
@@ -503,21 +501,7 @@ public abstract class LivingEntityMixin extends Entity implements ModifiableFood
     @Inject(method = "baseTick", at = @At("TAIL"))
     private void updateItemStackHolder(CallbackInfo ci) {
         InventoryUtil.forEachStack(this, stack -> stack.setEntityRepresentation(this));
-        PowerHolderComponent.KEY.maybeGet(this).ifPresent(phc -> {
-            phc.tick();
-        });
-    }
-
-    @Inject(method = "canBreatheUnderwater", at = @At("HEAD"), cancellable = true)
-    private void apoli$gillsCanBreathe(CallbackInfoReturnable<Boolean> cir) {
-        if (PowerHolderComponent.KEY.maybeGet(this).map(phc -> phc.hasPower(io.github.apace100.origins.power.OriginsPowerTypes.WATER_BREATHING)).orElse(false)) {
-            boolean isInAir = this.level().getFluidState(net.minecraft.core.BlockPos.containing(this.getX(), this.getEyeY(), this.getZ())).isEmpty();
-            if (isInAir) {
-                cir.setReturnValue(false);
-            } else {
-                cir.setReturnValue(true);
-            }
-        }
+        PowerHolderComponent.KEY.maybeGet(this).ifPresent(PowerHolderComponent::tick);
     }
 
     /*@Inject(method = "canEquipWithDispenser", at = @At("HEAD"), cancellable = true)
@@ -533,6 +517,21 @@ public abstract class LivingEntityMixin extends Entity implements ModifiableFood
     }*/
 
     // Like Water: cancel gravity when in water with LIKE_WATER power and not crouching
+    @WrapOperation(method = "travel", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;getFluidFallingAdjustedMovement(DZLnet/minecraft/world/phys/Vec3;)Lnet/minecraft/world/phys/Vec3;"))
+    private net.minecraft.world.phys.Vec3 apoli$likeWaterSink(LivingEntity entity, double d, boolean bl, net.minecraft.world.phys.Vec3 vec3, Operation<net.minecraft.world.phys.Vec3> original) {
+        net.minecraft.world.phys.Vec3 oldReturn = original.call(entity, d, bl, vec3);
+        if (entity instanceof Player player && !player.isCrouching()) {
+            if (PowerHolderComponent.KEY.maybeGet(player)
+                    .map(phc -> phc.hasPower(io.github.apace100.origins.power.OriginsPowerTypes.LIKE_WATER))
+                    .orElse(false)) {
+                if (Math.abs(vec3.y - d / 16.0D) < 0.025D) {
+                    return new net.minecraft.world.phys.Vec3(oldReturn.x, 0.0D, oldReturn.z);
+                }
+            }
+        }
+        return oldReturn;
+    }
+
     @Inject(method = "getDefaultGravity", at = @At("RETURN"), cancellable = true)
     private void apoli$likeWaterGravity(CallbackInfoReturnable<Double> cir) {
         if ((Object) this instanceof net.minecraft.world.entity.player.Player player) {

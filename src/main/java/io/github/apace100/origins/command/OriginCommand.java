@@ -115,7 +115,7 @@ public class OriginCommand {
 			
 		}
 		
-		else serverCommandSource.sendFailure(Component.translatable("commands.origin.unregistered_in_layer", origin.getIdentifier().toString(), originLayer.getIdentifier().toString()));
+		else serverCommandSource.sendFailure(Component.translatable("commands.origin.unregistered_in_layer", Component.translationArg(origin.getIdentifier()), Component.translationArg(originLayer.getIdentifier())));
 		
 		return processedTargets;
 		
@@ -152,7 +152,7 @@ public class OriginCommand {
 			
 		}
 		
-		else serverCommandSource.sendFailure(Component.translatable("commands.origin.unregistered_in_layer", origin.getIdentifier().toString(), originLayer.getIdentifier().toString()));
+		else serverCommandSource.sendFailure(Component.translatable("commands.origin.unregistered_in_layer", Component.translationArg(origin.getIdentifier()), Component.translationArg(originLayer.getIdentifier())));
 		
 		return processedTargets;
 		
@@ -173,7 +173,7 @@ public class OriginCommand {
 		OriginLayer originLayer = LayerArgumentType.getLayer(commandContext, "layer");
 		Origin origin = originComponent.getOrigin(originLayer);
 		
-		serverCommandSource.sendSuccess(() -> Component.translatable("commands.origin.get.result", target.getDisplayName().getString(), Component.translatable(originLayer.getTranslationKey()), origin.getName(), origin.getIdentifier().toString()), true);
+		serverCommandSource.sendSuccess(() -> Component.translatable("commands.origin.get.result", target.getDisplayName().getString(), Component.translatable(originLayer.getTranslationKey()), origin.getName(), Component.translationArg(origin.getIdentifier())), true);
 		
 		return 1;
 		
