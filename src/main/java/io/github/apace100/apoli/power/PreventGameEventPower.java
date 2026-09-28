@@ -7,6 +7,7 @@ import io.github.apace100.calio.data.SerializableData;
 import io.github.apace100.calio.data.SerializableDataTypes;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderSet;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -39,12 +40,20 @@ public class PreventGameEventPower extends Power {
         if(tag != null && event.is(tag)) {
             return true;
         }
-        if(list != null && list.contains(event)) {
-            return true;
+        if(list != null) {
+            if (list.contains(event)) {
+                return true;
+            }
+            for (Holder<GameEvent> holder : list) {
+                if (holder.value() == event.value()) {
+                    return true;
+                }
+            }
         }
         return false;
     }
 
+    @SuppressWarnings("unchecked")
     public static PowerFactory createFactory() {
         return new PowerFactory<>(Apoli.identifier("prevent_game_event"),
             new SerializableData()
@@ -54,16 +63,32 @@ public class PreventGameEventPower extends Power {
                 .add("entity_action", ApoliDataTypes.ENTITY_ACTION, null),
             data ->
                 (type, player) -> {
-                    List<Holder<GameEvent>> eventList = data.isPresent("events") ? (List<Holder<GameEvent>>)data.get("events") : null;
-                    if(eventList == null) {
-                        eventList = new LinkedList<>();
+                    List<Holder<GameEvent>> eventList = new LinkedList<>();
+                    if(data.isPresent("events")) {
+                        Object rawEvents = data.get("events");
+                        if(rawEvents instanceof List<?> l) {
+                            for(Object elem : l) {
+                                if(elem instanceof Holder<?> h) {
+                                    eventList.add((Holder<GameEvent>) h);
+                                } else if(elem instanceof GameEvent ge) {
+                                    eventList.add(BuiltInRegistries.GAME_EVENT.wrapAsHolder(ge));
+                                }
+                            }
+                        }
                     }
 
                     if(data.isPresent("event")) {
-                        eventList.add(data.get("event"));
+                        Object rawEvent = data.get("event");
+                        if(rawEvent instanceof Holder<?> h) {
+                            eventList.add((Holder<GameEvent>) h);
+                        } else if(rawEvent instanceof GameEvent ge) {
+                            eventList.add(BuiltInRegistries.GAME_EVENT.wrapAsHolder(ge));
+                        }
                     }
+
+                    HolderSet<GameEvent> holderSet = eventList.isEmpty() ? null : HolderSet.direct(eventList);
                     return new PreventGameEventPower(type, player,
-                        data.get("tag"), HolderSet.direct(eventList),
+                        data.get("tag"), holderSet,
                         data.get("entity_action"));
                 })
             .allowCondition();

@@ -202,7 +202,7 @@ public class SerializableDataType<T> {
 
     public static <T> SerializableDataType<Holder<T>> registryHolderWithRemap(Registry<T> registry, Function<ResourceLocation, Holder<T>> remap) {
         return wrap(ClassUtil.castClass(Holder.class), SerializableDataTypes.IDENTIFIER,
-            e -> e.unwrapKey().orElseThrow().location(), id -> {
+            e -> e.unwrapKey().map(ResourceKey::location).orElseGet(() -> registry.getKey(e.value())), id -> {
             var remapped = remap.apply(id);
 
             if (remapped != null)
@@ -216,6 +216,10 @@ public class SerializableDataType<T> {
                     "Identifier \"" + id + "\" was not registered in registry \"" + registry.key().location() + "\".");
             }
         });
+    }
+
+    public static <T> SerializableDataType<Holder<T>> registryHolder(Registry<T> registry) {
+        return registryHolderWithRemap(registry, id -> null);
     }
 
     public static <T> SerializableDataType<T> compound(Class<T> dataClass, SerializableData data, Function<SerializableData.Instance, T> toInstance, BiFunction<SerializableData, T, SerializableData.Instance> toData) {
