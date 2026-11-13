@@ -338,8 +338,22 @@ public final class SerializableDataTypes {
     // An alternative version of an ingredient deserializer which allows `minecraft:air`
     public static final SerializableDataType<Ingredient> INGREDIENT = new SerializableDataType<>(
         Ingredient.class,
-        Ingredient.CONTENTS_STREAM_CODEC::encode,
-        Ingredient.CONTENTS_STREAM_CODEC::decode,
+        (buf, ingredient) -> {
+            // Vanilla Ingredient.CONTENTS_STREAM_CODEC rejects ItemStack.EMPTY (`minecraft:air`)
+            ItemStack[] items = ingredient.getItems();
+            buf.writeVarInt(items.length);
+            for (ItemStack stack : items) {
+                ItemStack.OPTIONAL_STREAM_CODEC.encode(buf, stack);
+            }
+        },
+        buf -> {
+            int count = buf.readVarInt();
+            List<Ingredient.Value> values = new ArrayList<>(count);
+            for (int i = 0; i < count; i++) {
+                values.add(new Ingredient.ItemValue(ItemStack.OPTIONAL_STREAM_CODEC.decode(buf)));
+            }
+            return Ingredient.fromValues(values.stream());
+        },
         (jsonElement, provider) -> {
             List<Ingredient.Value> entryList = INGREDIENT_ENTRIES.read(jsonElement, provider);
             return Ingredient.fromValues(entryList.stream());

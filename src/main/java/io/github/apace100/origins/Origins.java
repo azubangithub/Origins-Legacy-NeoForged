@@ -97,8 +97,9 @@ public class Origins {
         });
 
 
-        // Register Origins-specific power factories
+        // Register Origins-specific power factories & entity conditions
         io.github.apace100.origins.power.OriginsPowerTypes.register();
+        io.github.apace100.origins.power.OriginsEntityConditions.register();
 
         // Phase 6: Register packet handlers
         modBus.addListener(ModPackets::register);
