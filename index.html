@@ -40,8 +40,13 @@
         </label>
 
         <label class="check">
-          <input type="checkbox" id="optRenameAttributes" checked>
-          <span>Update renamed <code>minecraft:generic.*</code> attributes (1.21.4+)</span>
+          <input type="checkbox" id="optMigratePowers" checked>
+          <span>Convert attributes, scale &amp; REA (<code>modify_size</code> &rarr; <code>scale</code>, reach, generic attrs)</span>
+        </label>
+
+        <label class="check">
+          <input type="checkbox" id="optMigrateItems" checked>
+          <span>Upgrade recipes, item NBT <code>tag</code> &rarr; <code>components</code> &amp; 1.21.4+ item models</span>
         </label>
       </div>
 
@@ -51,7 +56,7 @@
     </section>
 
     <footer class="foot">
-      Runs 100% locally in your browser &middot; Data &amp; asset registration conversion (<code>lowcodefml</code>) &middot; Custom Java powers/mixins cannot be auto-ported.
+      Runs 100% locally in your browser &middot; Generates a NeoForge <code>javafml</code> <code>@Mod</code> stub &amp; migrates compatible JSONs/assets &middot; Unmapped custom Java powers cannot be auto-ported.
     </footer>
   </main>
 
