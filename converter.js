@@ -78,6 +78,18 @@
     'player.sweeping_damage_ratio', 'zombie.spawn_reinforcements',
   ]);
 
+  // Vanilla 1.20.1 -> 1.21+ item/block ID renames
+  const VANILLA_ID_RENAMES = {
+    'minecraft:scute': 'minecraft:turtle_scute',
+    'minecraft:grass': 'minecraft:short_grass',
+  };
+
+  function isAirIngredientEntry(entry) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return false;
+    if (entry.tag) return false;
+    return entry.item === 'minecraft:air' || entry.item === 'air';
+  }
+
   const CODE_MARKERS = [
     'PowerFactory', 'ConditionFactory', 'ActionFactory', 'org/spongepowered/asm/mixin',
     'net/fabricmc/fabric/api', 'net/minecraft/world/item/Item', 'net/minecraft/world/level/block/Block',
@@ -445,11 +457,57 @@
     if (Array.isArray(value)) {
       return value.map((item, idx) => walkAndTransformJson(item, ctx, `${keyHint}_${idx}`));
     }
+    if (typeof value === 'string') {
+      if (
+        ctx.migrateItems &&
+        !ctx.isLangFile &&
+        keyHint !== 'name' &&
+        keyHint !== 'description' &&
+        keyHint !== 'text' &&
+        Object.prototype.hasOwnProperty.call(VANILLA_ID_RENAMES, value)
+      ) {
+        ctx.stats.idsRenamed = (ctx.stats.idsRenamed || 0) + 1;
+        return VANILLA_ID_RENAMES[value];
+      }
+      return value;
+    }
     if (!value || typeof value !== 'object') {
       return value;
     }
 
     let obj = { ...value };
+
+    // Replace `apoli:ingredient` containing `minecraft:air` with `apoli:empty` (avoids 1.21.1 packet crash)
+    if (
+      ctx.migrateItems &&
+      (obj.type === 'apoli:ingredient' || obj.type === 'origins:ingredient') &&
+      obj.ingredient !== undefined
+    ) {
+      if (isAirIngredientEntry(obj.ingredient)) {
+        const nextObj = { ...obj, type: 'apoli:empty' };
+        delete nextObj.ingredient;
+        obj = nextObj;
+        ctx.stats.airIngredientsFixed = (ctx.stats.airIngredientsFixed || 0) + 1;
+      } else if (Array.isArray(obj.ingredient) && obj.ingredient.some(isAirIngredientEntry)) {
+        const nonAir = obj.ingredient.filter((e) => !isAirIngredientEntry(e));
+        if (nonAir.length === 0) {
+          const nextObj = { ...obj, type: 'apoli:empty' };
+          delete nextObj.ingredient;
+          obj = nextObj;
+        } else {
+          const nextObj = {
+            type: 'apoli:or',
+            conditions: [
+              { type: obj.type, ingredient: nonAir.length === 1 ? nonAir[0] : nonAir },
+              { type: 'apoli:empty' },
+            ],
+          };
+          if (obj.inverted !== undefined) nextObj.inverted = obj.inverted;
+          obj = nextObj;
+        }
+        ctx.stats.airIngredientsFixed = (ctx.stats.airIngredientsFixed || 0) + 1;
+      }
+    }
 
     // Convert power type if in powers/ or embedded sub-power
     if (ctx.migratePowers && typeof obj.type === 'string' && ctx.isPowerFile) {
@@ -737,6 +795,8 @@
           attrsMapped: 0,
           tagsConverted: 0,
           recipesUpdated: 0,
+          idsRenamed: 0,
+          airIngredientsFixed: 0,
           itemModelsGenerated: 0,
         };
         const warnings = [];
@@ -770,12 +830,14 @@
               const parsed = JSON.parse(rawText);
               const isPowerFile = /^data\/[^/]+\/powers\/.+\.json$/i.test(newPath);
               const isRecipeFile = /^data\/[^/]+\/(recipe|recipes)\/.+\.json$/i.test(newPath);
+              const isLangFile = /^assets\/[^/]+\/lang\/.+\.json$/i.test(newPath);
               const transformed = walkAndTransformJson(parsed, {
                 target,
                 migratePowers,
                 migrateItems,
                 isPowerFile,
                 isRecipeFile,
+                isLangFile,
                 relPath: newPath,
                 stats,
                 warnings,
@@ -834,6 +896,8 @@
         if (stats.attrsMapped > 0) summary.push({ level: 'ok', text: `Updated ${stats.attrsMapped} vanilla/step attribute ID(s).` });
         if (stats.tagsConverted > 0) summary.push({ level: 'ok', text: `Converted ${stats.tagsConverted} item NBT "tag" object(s) -> "components".` });
         if (stats.recipesUpdated > 0) summary.push({ level: 'ok', text: `Updated ${stats.recipesUpdated} recipe result schema(s) to 1.21+ format.` });
+        if (stats.idsRenamed > 0) summary.push({ level: 'ok', text: `Renamed ${stats.idsRenamed} 1.20.1 vanilla ID(s) (e.g. scute -> turtle_scute, grass -> short_grass).` });
+        if (stats.airIngredientsFixed > 0) summary.push({ level: 'ok', text: `Rewrote ${stats.airIngredientsFixed} air-ingredient condition(s) -> apoli:empty (prevents 1.21.1 packet crash).` });
         if (stats.itemModelsGenerated > 0) summary.push({ level: 'ok', text: `Generated ${stats.itemModelsGenerated} 1.21.4+ client item model definition(s).` });
         if (analysis.unsupportedPowers.size > 0) {
           summary.push({
