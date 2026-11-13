@@ -516,8 +516,12 @@
       }
 
       if (name === 'multiple') {
+        const nonSubPowerKeys = new Set([
+          'type', 'loading_priority', 'name', 'description', 'hidden',
+          'badges', 'condition', 'fabric:load_conditions', 'neoforge:conditions',
+        ]);
         for (const [k, v] of Object.entries(obj)) {
-          if (['type', 'name', 'description', 'hidden', 'badges', 'loading_priority'].includes(k)) continue;
+          if (nonSubPowerKeys.has(k) || k.startsWith('$')) continue;
           if (v && typeof v === 'object' && typeof v.type === 'string') {
             inspectPowerTypesInJson(v, `${relPath}#${k}`, analysis);
           }
