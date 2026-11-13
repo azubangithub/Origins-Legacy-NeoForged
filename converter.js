@@ -532,7 +532,9 @@
     const displayName = meta.name || modId;
     const license = extractLicense(meta.license);
     const authors = extractAuthors(meta.authors);
-    const description = meta.description || 'Converted from Origins 1.20.1 Fabric addon.';
+    const baseDescription = typeof meta.description === 'string' ? meta.description.trim() : '';
+    const convertedNotice = `[Converted from Fabric 1.20.1 to NeoForge ${target.mc} via Origins Addon Converter. For personal use only — do not publish or redistribute on any platform.]`;
+    const description = baseDescription ? `${baseDescription}\n\n${convertedNotice}` : convertedNotice;
 
     let iconPath = '';
     if (typeof meta.icon === 'string') {
