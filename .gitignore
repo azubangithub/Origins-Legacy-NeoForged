@@ -1,0 +1,46 @@
+### Gradle ###
+.gradle
+build/
+
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+.run/
+
+### Eclipse ###
+.apt_generated
+.classpath
+.eclipse/
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+
+### VS Code ###
+.vscode/
+
+### Mac OS ###
+.DS_Store
+
+### Minecraft Modding ###
+run/
+repo/
+
+### Local Workspace Files ###
+cosmetics/
+randomizer/
+/Origins-Legacy-1.21.1/
+/geckolib-1.21.1/
+/neoforge-sources/
+/net/
+
+### Temporary / Scratch Files ###
+temp_*.txt
+test_*.java
+run_output.txt
+COSMETICS_PLAN.md
