@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Origins Legacy — Addon Converter</title>
+  <link rel="icon" href="logo.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap">
+  <link rel="stylesheet" href="https://fontlibrary.org/face/minecraft">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="wrap">
+    <header class="hero">
+      <img src="logo.png" alt="Origins Legacy Logo" class="logo" width="96" height="96">
+      <h1 class="title">ORIGINS ADDON CONVERTER</h1>
+      <p class="subtitle">
+        Convert simple 1.20.1 Fabric Origins addons into NeoForge mod JARs right in your browser.
+      </p>
+    </header>
+
+    <section class="panel" aria-label="Addon Converter">
+      <label class="dropzone" id="dropzone" for="fileInput">
+        <input type="file" id="fileInput" accept=".jar,.zip" hidden>
+        <span class="drop-title" id="dropTitle">DROP FABRIC .JAR HERE</span>
+        <span class="drop-hint" id="dropHint">or click to choose an Origins 1.20.1 Fabric addon file</span>
+      </label>
+
+      <div class="controls">
+        <div class="field">
+          <label for="targetVersion" class="label">TARGET MINECRAFT / NEOFORGE VERSION</label>
+          <select id="targetVersion" class="select"></select>
+        </div>
+
+        <label class="check">
+          <input type="checkbox" id="optRenameFolders" checked>
+          <span>Rename 1.20.1 plural data folders (<code>recipes</code> &rarr; <code>recipe</code>, etc.)</span>
+        </label>
+
+        <label class="check">
+          <input type="checkbox" id="optRenameAttributes" checked>
+          <span>Update renamed <code>minecraft:generic.*</code> attributes (1.21.4+)</span>
+        </label>
+      </div>
+
+      <button type="button" id="convertBtn" class="btn" disabled>CONVERT TO NEOFORGE .JAR</button>
+
+      <div id="report" class="report hidden" aria-live="polite"></div>
+    </section>
+
+    <footer class="foot">
+      Runs 100% locally in your browser &middot; Data &amp; asset registration conversion (<code>lowcodefml</code>) &middot; Custom Java powers/mixins cannot be auto-ported.
+    </footer>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="converter.js"></script>
+</body>
+</html>
