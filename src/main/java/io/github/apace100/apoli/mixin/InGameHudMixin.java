@@ -1,0 +1,81 @@
+package io.github.apace100.apoli.mixin;
+
+import io.github.apace100.apoli.component.PowerHolderComponent;
+import io.github.apace100.apoli.power.OverlayPower;
+import io.github.apace100.apoli.power.OverrideHudTexturePower;
+import io.github.apace100.apoli.screen.OverlayPowerRenderer;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.resources.Identifier;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import java.util.Optional;
+
+@Mixin(Gui.class)
+public class InGameHudMixin {
+
+    @Shadow @Final private Minecraft minecraft;
+
+    @Inject(method = "extractRenderState", at = @At("TAIL"))
+    private void renderOverlayPowers(GuiGraphicsExtractor graphics, DeltaTracker deltaTracker, CallbackInfo ci) {
+        boolean hudHidden = this.minecraft.options.hideGui;
+        boolean thirdPerson = !minecraft.options.getCameraType().isFirstPerson();
+        PowerHolderComponent.withPower(minecraft.getCameraEntity(), OverlayPower.class, p -> {
+            if(p.getDrawPhase() != OverlayPower.DrawPhase.ABOVE_HUD) {
+                return false;
+            }
+            if(hudHidden && p.doesHideWithHud()) {
+                return false;
+            }
+            if(thirdPerson && !p.shouldBeVisibleInThirdPerson()) {
+                return false;
+            }
+            return true;
+        }, p -> OverlayPowerRenderer.render(p, graphics));
+    }
+
+    // TODO Origins-Legacy: Map GUI icons correctly
+    @ModifyArg(method = "extractArmor", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;blitSprite(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIII)V"), index = 1)
+    private static Identifier changeStatusBarTextures(Identifier original) {
+        Optional<OverrideHudTexturePower> power = PowerHolderComponent.getPowers(Minecraft.getInstance().player, OverrideHudTexturePower.class).stream().findFirst();
+        if (power.isPresent()) {
+            return power.get().getStatusBarTexture();
+        }
+        return original;
+    }
+
+    @ModifyArg(method = "extractHeart", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;blitSprite(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIII)V"), index = 1)
+    public Identifier changeHearts(Identifier original) {
+        Optional<OverrideHudTexturePower> power = PowerHolderComponent.getPowers(this.minecraft.player, OverrideHudTexturePower.class).stream().findFirst();
+        if (power.isPresent()) {
+            return power.get().getStatusBarTexture();
+        }
+        return original;
+    }
+
+    @ModifyArg(method = "extractCrosshair", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;blitSprite(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIII)V", ordinal = 0), index = 1)
+    public Identifier changeCrosshair(Identifier original) {
+        Optional<OverrideHudTexturePower> power = PowerHolderComponent.getPowers(this.minecraft.player, OverrideHudTexturePower.class).stream().findFirst();
+        if (power.isPresent()) {
+            return power.get().getStatusBarTexture();
+        }
+        return original;
+    }
+
+    @ModifyArg(method = "extractVehicleHealth", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;blitSprite(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIII)V"), index = 1)
+    public Identifier changeMountHealth(Identifier original) {
+        Optional<OverrideHudTexturePower> power = PowerHolderComponent.getPowers(this.minecraft.player, OverrideHudTexturePower.class).stream().findFirst();
+        if (power.isPresent()) {
+            return power.get().getStatusBarTexture();
+        }
+        return original;
+    }
+}

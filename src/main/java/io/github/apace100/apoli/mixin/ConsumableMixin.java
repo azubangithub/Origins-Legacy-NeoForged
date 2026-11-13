@@ -1,0 +1,64 @@
+package io.github.apace100.apoli.mixin;
+
+import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
+import com.llamalad7.mixinextras.sugar.Local;
+import io.github.apace100.apoli.access.ModifiableFoodEntity;
+import io.github.apace100.apoli.component.PowerHolderComponent;
+import io.github.apace100.apoli.power.ModifyFoodPower;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.Consumable;
+import net.minecraft.world.level.Level;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
+import org.spongepowered.asm.mixin.injection.Slice;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+import java.util.LinkedList;
+import java.util.List;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
+
+@Mixin(Consumable.class)
+public class ConsumableMixin {
+    @ModifyVariable(method = "onConsume", at = @At("HEAD"), argsOnly = true)
+    private ItemStack modifyEatenItemStack(ItemStack original, @Local(argsOnly = true) LivingEntity entity) {
+        List<ModifyFoodPower> mfps = PowerHolderComponent.getPowers(entity, ModifyFoodPower.class);
+        mfps = mfps.stream().filter(mfp -> mfp.doesApply(original)).collect(Collectors.toList());
+        ItemStack newStack = original;
+        for(ModifyFoodPower mfp : mfps) {
+            newStack = mfp.getConsumedItemStack(newStack);
+        }
+        ((ModifiableFoodEntity) entity).setCurrentModifyFoodPowers(mfps);
+        ((ModifiableFoodEntity) entity).setOriginalFoodStack(original);
+        return newStack;
+    }
+
+    @ModifyVariable(method = "onConsume", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;gameEvent(Lnet/minecraft/core/Holder;)V", shift = At.Shift.AFTER), argsOnly = true)
+    private ItemStack unmodifyEatenItemStack(ItemStack modified, @Local(argsOnly = true) LivingEntity entity) {
+        ModifiableFoodEntity foodEntity = (ModifiableFoodEntity) entity;
+        ItemStack original = foodEntity.getOriginalFoodStack();
+        if(original != null) {
+            foodEntity.setOriginalFoodStack(null);
+            return original;
+        }
+        return modified;
+    }
+
+    @Inject(method = "onConsume", at = @At("TAIL"))
+    private void removeCurrentModifyFoodPowers(Level level, LivingEntity entity, ItemStack stack, CallbackInfoReturnable<ItemStack> cir) {
+        ((ModifiableFoodEntity) entity).setCurrentModifyFoodPowers(new LinkedList<>());
+    }
+
+    @WrapWithCondition(method = "onConsume", at = @At(value = "INVOKE", target = "Ljava/util/List;forEach(Ljava/util/function/Consumer;)V"), slice = @Slice(
+        from = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/ItemStack;getAllOfType(Ljava/lang/Class;)Ljava/util/stream/Stream;"),
+        to = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;gameEvent(Lnet/minecraft/core/Holder;)V")
+    ))
+    private static boolean preventApplyingFoodEffects(List instance, Consumer consumer, @Local(argsOnly = true) ItemStack stack, @Local(argsOnly = true) LivingEntity user) {
+        return PowerHolderComponent.getPowers(user, ModifyFoodPower.class)
+            .stream().filter(p -> p.doesApply(stack))
+            .noneMatch(ModifyFoodPower::doesPreventEffects);
+    }
+}
