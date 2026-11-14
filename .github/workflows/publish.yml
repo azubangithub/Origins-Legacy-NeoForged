@@ -121,9 +121,9 @@ jobs:
         uses: Kir-Antipov/mc-publish@v3
         with:
           modrinth-id: ${{ (inputs.target == 'both' || inputs.target == 'modrinth') && 'origins-legacy-neoforged' || '' }}
-          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          modrinth-token: ${{ (inputs.target == 'both' || inputs.target == 'modrinth') && secrets.MODRINTH_TOKEN || '' }}
           curseforge-id: ${{ (inputs.target == 'both' || inputs.target == 'curseforge') && '1606635' || '' }}
-          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+          curseforge-token: ${{ (inputs.target == 'both' || inputs.target == 'curseforge') && secrets.CURSEFORGE_TOKEN || '' }}
           files: 'build/libs/!(*-@(dev|sources|javadoc)).jar'
           name: "Origins Legacy ${{ steps.meta.outputs.mod_version }} (NeoForge ${{ steps.meta.outputs.mc_version }})"
           version: "${{ steps.meta.outputs.mod_version }}+mc${{ steps.meta.outputs.mc_version }}"
