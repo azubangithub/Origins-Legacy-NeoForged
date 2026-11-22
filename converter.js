@@ -207,12 +207,32 @@
     'extraorigins:mob_neutrality',
     'extraorigins:food_effect_immunity',
     'extraorigins:start_riding',
+    'extraorigins:radial_menu',
   ]);
 
   const CONVERTIBLE_EXTRA_NODES = new Set([
     'extraorigins:piglin_safe',
     'extraorigins:block_action_looking_at',
+    'extraorigins:radial_menu_direction',
   ]);
+
+  const ACTIVE_POWER_SHORT_NAMES = new Set([
+    'active_self', 'launch', 'fire_projectile', 'inventory', 'toggle', 'toggle_night_vision',
+  ]);
+
+  const VALID_KEYBIND_NAMES = new Set([
+    'key.origins.primary_active', 'key.origins.secondary_active', 'key.origins.view_origin',
+    'key.attack', 'key.use', 'key.forward', 'key.back', 'key.left', 'key.right', 'key.jump',
+    'key.sneak', 'key.sprint', 'key.drop', 'key.inventory', 'key.swapOffhand', 'key.pickItem',
+    'key.playerlist', 'key.chat', 'key.command', 'key.socialInteractions', 'key.advancements',
+    'key.spectatorOutlines', 'key.screenshot', 'key.smoothCamera', 'key.fullscreen',
+    'key.togglePerspective', 'key.loadToolbarActivator', 'key.saveToolbarActivator',
+    'key.hotbar.1', 'key.hotbar.2', 'key.hotbar.3', 'key.hotbar.4', 'key.hotbar.5',
+    'key.hotbar.6', 'key.hotbar.7', 'key.hotbar.8', 'key.hotbar.9',
+  ]);
+
+  const RADIAL_DIR_TO_INDEX = { up: 0, right: 1, down: 2, left: 3 };
+  const RADIAL_INDEX_LABELS = ['UP', 'RIGHT', 'DOWN', 'LEFT'];
 
   const CODE_MARKERS = [
     'PowerFactory', 'ConditionFactory', 'ActionFactory', 'org/spongepowered/asm/mixin',
@@ -909,7 +929,39 @@
     return out;
   }
 
-  function convertExtraNode(obj, ctx) {
+  function powerPathToId(relPath) {
+    const m = /^data\/([^/]+)\/powers\/(.+)\.json$/i.exec(String(relPath || ''));
+    return m ? `${m[1]}:${m[2]}` : null;
+  }
+
+  function mapKeyIdString(rawKey, isRadialMenu = false) {
+    const s = String(rawKey || '').trim();
+    if (!s || s === 'none' || s === 'key.layers.primary_active') {
+      return 'key.origins.primary_active';
+    }
+    if (VALID_KEYBIND_NAMES.has(s)) return s;
+    if (/primary/i.test(s)) return 'key.origins.primary_active';
+    if (!isRadialMenu && /secondary|ternary|quaternary|alt|off|menu|radial/i.test(s)) {
+      return 'key.origins.secondary_active';
+    }
+    return isRadialMenu ? 'key.origins.primary_active' : 'key.origins.primary_active';
+  }
+
+  function normalizeKeyValue(rawKey, ctx, isRadialMenu = false) {
+    const isObj = rawKey && typeof rawKey === 'object' && !Array.isArray(rawKey);
+    const current = isObj ? rawKey.key : rawKey;
+    const mapped = mapKeyIdString(current, isRadialMenu);
+    if (mapped !== current && ctx?.stats) {
+      ctx.stats.keysRemapped = (ctx.stats.keysRemapped || 0) + 1;
+      if (ctx.warnings && current && current !== 'none' && !VALID_KEYBIND_NAMES.has(current)) {
+        const msg = `Remapped unsupported keybind "${current}" -> "${mapped}"`;
+        if (!ctx.warnings.includes(msg)) ctx.warnings.push(msg);
+      }
+    }
+    return isObj ? { ...rawKey, key: mapped } : mapped;
+  }
+
+  function convertExtraNode(obj, ctx, keyHint = 'root') {
     if (!obj || typeof obj.type !== 'string') return obj;
     const keepMeta = (src, target) => {
       for (const k of ['name', 'description', 'hidden', 'badges', 'condition', 'loading_priority']) {
@@ -917,6 +969,95 @@
       }
       return target;
     };
+
+    if (obj.type === 'extraorigins:radial_menu') {
+      const basePowerId = (ctx && ctx.currentPowerId) || powerPathToId(ctx?.relPath) || 'extraorigins:radial_menu';
+      const selfPowerId = keyHint !== 'root' && ctx?.insideMultiple ? `${basePowerId}_${keyHint}` : basePowerId;
+      const resourceId = (ctx?.radialMenus && ctx.radialMenus.get(selfPowerId)?.resourceId) || `${selfPowerId}_mode`;
+      const normalizedKey = normalizeKeyValue(obj.key ?? 'key.origins.primary_active', ctx, true);
+      const useSnbt = Boolean(ctx?.target?.cmdCompound);
+
+      const modeActions = RADIAL_INDEX_LABELS.map((label, idx) => ({
+        condition: { type: 'apoli:resource', resource: resourceId, comparison: '==', compare_to: idx },
+        action: {
+          type: 'apoli:execute_command',
+          command: useSnbt
+            ? `title @s actionbar {text:"Mode: ${label}",color:"aqua"}`
+            : `title @s actionbar {"text":"Mode: ${label}","color":"aqua"}`,
+        },
+      }));
+
+      const cyclePower = {
+        type: 'origins:active_self',
+        key: typeof normalizedKey === 'string' ? { key: normalizedKey } : normalizedKey,
+        cooldown: 4,
+        entity_action: {
+          type: 'apoli:and',
+          actions: [
+            {
+              type: 'apoli:if_else',
+              condition: { type: 'apoli:resource', resource: resourceId, comparison: '==', compare_to: 3 },
+              if_action: { type: 'apoli:change_resource', resource: resourceId, change: 0, operation: 'set' },
+              else_action: { type: 'apoli:change_resource', resource: resourceId, change: 1, operation: 'add' },
+            },
+            { type: 'apoli:play_sound', sound: 'minecraft:ui.button.click', volume: 0.4, pitch: 1.2 },
+            { type: 'apoli:if_else_list', actions: modeActions },
+          ],
+        },
+      };
+
+      const modeResource = {
+        type: 'origins:resource',
+        min: 0,
+        max: 3,
+        start_value: 0,
+        hud_render: { should_render: true, bar_index: 0 },
+      };
+
+      ctx.stats.extraPowersConverted = (ctx.stats.extraPowersConverted || 0) + 1;
+      return keepMeta(obj, {
+        type: 'origins:multiple',
+        mode: modeResource,
+        cycle: cyclePower,
+      });
+    }
+
+    if (obj.type === 'extraorigins:radial_menu_direction') {
+      const rawPower = typeof obj.power === 'string' ? obj.power : null;
+      const mappedRes = (rawPower && ctx?.radialMenus?.get(rawPower)?.resourceId)
+        || (rawPower ? `${rawPower}_mode` : null)
+        || ctx?.defaultRadialResource
+        || 'extraorigins:magic_spores_mode';
+
+      const toIdx = (dir) => {
+        const k = String(dir || 'up').toLowerCase();
+        return Object.prototype.hasOwnProperty.call(RADIAL_DIR_TO_INDEX, k) ? RADIAL_DIR_TO_INDEX[k] : 0;
+      };
+
+      ctx.stats.extraPowersConverted = (ctx.stats.extraPowersConverted || 0) + 1;
+      if (Array.isArray(obj.directions) && obj.directions.length > 0) {
+        const out = {
+          type: 'apoli:or',
+          conditions: obj.directions.map((d) => ({
+            type: 'apoli:resource',
+            resource: mappedRes,
+            comparison: '==',
+            compare_to: toIdx(d),
+          })),
+        };
+        if (obj.inverted !== undefined) out.inverted = obj.inverted;
+        return out;
+      }
+
+      const out = {
+        type: 'apoli:resource',
+        resource: mappedRes,
+        comparison: '==',
+        compare_to: toIdx(obj.direction),
+      };
+      if (obj.inverted !== undefined) out.inverted = obj.inverted;
+      return out;
+    }
 
     if (obj.type === 'extraorigins:mob_neutrality') {
       let bientityCond = obj.bientity_condition;
@@ -1019,7 +1160,7 @@
         obj.type = LEGACY_TYPE_REMAPPINGS[obj.type];
         ctx.stats.attrsMapped++;
       } else if (CONVERTIBLE_EXTRA_NODES.has(obj.type)) {
-        obj = convertExtraNode(obj, ctx);
+        obj = convertExtraNode(obj, ctx, keyHint);
       }
     }
 
@@ -1060,7 +1201,7 @@
       if (SCALE_POWER_TYPES.has(obj.type)) {
         obj = convertScalePowerNode(obj, ctx.target, keyHint, ctx.stats);
       } else if (CONVERTIBLE_EXTRA_POWERS.has(obj.type)) {
-        obj = convertExtraNode(obj, ctx);
+        obj = convertExtraNode(obj, ctx, keyHint);
       } else if (
         ctx.stubUnsupported &&
         (keyHint === 'root' || ctx.insideMultiple) &&
@@ -1069,6 +1210,21 @@
         ctx.stats.powersStubbed = (ctx.stats.powersStubbed || 0) + 1;
         if (ctx.stubbedTypes) ctx.stubbedTypes.add(obj.type);
         return makePowerStub(obj);
+      }
+    }
+
+    // Ensure Active powers always have a valid NeoForge keybinding (missing/"none"/custom mod keys fail silently)
+    if (ctx.migratePowers && ctx.isPowerFile && typeof obj.type === 'string') {
+      const shortType = obj.type.includes(':') ? obj.type.split(':', 2)[1] : obj.type;
+      if (ACTIVE_POWER_SHORT_NAMES.has(shortType)) {
+        if (obj.key === undefined) {
+          obj.key = { key: 'key.origins.primary_active' };
+          ctx.stats.keysRemapped = (ctx.stats.keysRemapped || 0) + 1;
+        } else {
+          obj.key = normalizeKeyValue(obj.key, ctx, false);
+        }
+      } else if (obj.key !== undefined) {
+        obj.key = normalizeKeyValue(obj.key, ctx, false);
       }
     }
 
@@ -1365,6 +1521,7 @@
       unsupportedPowers: new Map(),
       unsupportedDetails: new Map(),
     };
+    const radialMenus = new Map();
     const powerPaths = Object.keys(zip.files).filter(
       (p) => !zip.files[p].dir && /^data\/[^/]+\/powers\/.+\.json$/i.test(p)
     );
@@ -1372,15 +1529,27 @@
       try {
         const parsed = parseJsonLenient(await zip.file(p).async('string'));
         inspectPowerTypesInJson(parsed, p, analysis);
+        const baseId = powerPathToId(p);
+        if (parsed && parsed.type === 'extraorigins:radial_menu' && baseId) {
+          radialMenus.set(baseId, { resourceId: `${baseId}_mode` });
+        } else if (parsed && (parsed.type === 'origins:multiple' || parsed.type === 'apoli:multiple') && baseId) {
+          for (const [k, v] of Object.entries(parsed)) {
+            if (v && typeof v === 'object' && v.type === 'extraorigins:radial_menu') {
+              radialMenus.set(`${baseId}_${k}`, { resourceId: `${baseId}_${k}_mode` });
+            }
+          }
+        }
       } catch { /* reported on convert */ }
     }
 
-    return { fileName: file.name, zip, meta, codeHits, nestedJars, powerPaths, analysis };
+    return { fileName: file.name, zip, meta, codeHits, nestedJars, powerPaths, radialMenus, analysis };
   }
 
   async function convertSingleArchive(loaded, options) {
     const { target, renameFolders, migratePowers, migrateItems, stubUnsupported } = options;
     const { zip, meta } = loaded;
+    const radialMenus = loaded.radialMenus || new Map();
+    const defaultRadialResource = radialMenus.size > 0 ? radialMenus.values().next().value.resourceId : null;
 
     const outZip = new window.JSZip();
     const keptPaths = new Set();
@@ -1389,8 +1558,10 @@
       nestedDataMerged: 0,
       folderRenames: 0,
       scalePowersConverted: 0,
+      extraPowersConverted: 0,
       reaMapped: 0,
       attrsMapped: 0,
+      keysRemapped: 0,
       loadConditionsFixed: 0,
       tagsConverted: 0,
       recipesUpdated: 0,
@@ -1446,6 +1617,9 @@
             isLootTableFile,
             isLangFile,
             relPath: newPath,
+            currentPowerId: isPowerFile ? powerPathToId(newPath) : null,
+            radialMenus,
+            defaultRadialResource,
             stats,
             warnings,
             stubbedTypes,
@@ -1670,6 +1844,7 @@
           if (stats.extraPowersConverted > 0) summary.push({ level: 'ok', text: `${prefix}Transpiled ${stats.extraPowersConverted} custom addon power/condition/action node(s) -> built-in Apoli.` });
           if (stats.reaMapped > 0) summary.push({ level: 'ok', text: `${prefix}Normalized ${stats.reaMapped} Reach Entity Attributes reference(s).` });
           if (stats.attrsMapped > 0) summary.push({ level: 'ok', text: `${prefix}Updated ${stats.attrsMapped} attribute/namespace ID(s).` });
+          if (stats.keysRemapped > 0) summary.push({ level: 'ok', text: `${prefix}Normalized ${stats.keysRemapped} keybind(s) to NeoForge Primary/Secondary keys.` });
           if (stats.loadConditionsFixed > 0) summary.push({ level: 'ok', text: `${prefix}Converted ${stats.loadConditionsFixed} fabric:load_conditions block(s) -> neoforge:conditions.` });
           if (stats.tagsConverted > 0) summary.push({ level: 'ok', text: `${prefix}Converted ${stats.tagsConverted} item NBT "tag" object(s) -> components.` });
           if (stats.recipesUpdated > 0) summary.push({ level: 'ok', text: `${prefix}Updated ${stats.recipesUpdated} recipe field(s) to ${target.mc} schema.` });
