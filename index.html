@@ -17,15 +17,15 @@
       <img src="logo.png" alt="Origins Legacy Logo" class="logo" width="96" height="96">
       <h1 class="title">ORIGINS ADDON CONVERTER</h1>
       <p class="subtitle">
-        Convert simple 1.20.1 Fabric Origins addons into NeoForge mod JARs right in your browser.
+        Convert 1.20.1 Fabric Origins addons into NeoForge mod JARs right in your browser.
       </p>
     </header>
 
     <section class="panel" aria-label="Addon Converter">
       <label class="dropzone" id="dropzone" for="fileInput">
-        <input type="file" id="fileInput" accept=".jar,.zip" hidden>
-        <span class="drop-title" id="dropTitle">DROP FABRIC .JAR HERE</span>
-        <span class="drop-hint" id="dropHint">or click to choose an Origins 1.20.1 Fabric addon file</span>
+        <input type="file" id="fileInput" accept=".jar,.zip" multiple hidden>
+        <span class="drop-title" id="dropTitle">DROP FABRIC .JAR(S) HERE</span>
+        <span class="drop-hint" id="dropHint">or click to choose one or more Origins 1.20.1 Fabric addons</span>
       </label>
 
       <div class="controls">
@@ -36,17 +36,22 @@
 
         <label class="check">
           <input type="checkbox" id="optRenameFolders" checked>
-          <span>Rename 1.20.1 plural data folders (<code>recipes</code> &rarr; <code>recipe</code>, etc.)</span>
+          <span>Migrate 1.20.1 data folders (<code>recipes</code>, <code>predicates</code>, <code>loot_tables</code>, <code>tags/*</code> &rarr; singular)</span>
         </label>
 
         <label class="check">
           <input type="checkbox" id="optMigratePowers" checked>
-          <span>Convert attributes, scale &amp; REA (<code>modify_size</code> &rarr; <code>scale</code>, reach, generic attrs)</span>
+          <span>Convert attributes, scale, REA &amp; load conditions (<code>modify_size</code> &rarr; <code>scale</code>, <code>fabric:load_conditions</code>)</span>
         </label>
 
         <label class="check">
           <input type="checkbox" id="optMigrateItems" checked>
-          <span>Upgrade 1.21+ recipes, vanilla IDs (<code>scute</code>), item NBT &amp; 1.21.4+ models</span>
+          <span>Upgrade 1.21+/1.21.4+ recipes, loot tables, full SNBT &rarr; <code>components</code>, vanilla IDs &amp; item models</span>
+        </label>
+
+        <label class="check">
+          <input type="checkbox" id="optStubUnsupported" checked>
+          <span>Replace unmapped Java powers with info stubs (keeps Origin descriptions &amp; cleaner logs)</span>
         </label>
       </div>
 

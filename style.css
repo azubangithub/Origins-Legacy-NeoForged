@@ -33,7 +33,7 @@ body {
 }
 
 .wrap {
-  max-width: 620px;
+  max-width: 660px;
   margin: 0 auto;
   padding: 40px 18px 28px;
   display: flex;
@@ -68,7 +68,7 @@ body {
 
 .subtitle {
   margin: 0;
-  max-width: 480px;
+  max-width: 500px;
   color: var(--muted);
   font-size: 13px;
 }
@@ -227,6 +227,32 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.report-details {
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+
+.report-details summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-family: var(--font-label);
+  font-size: 11px;
+  user-select: none;
+}
+
+.report-details ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  max-height: 180px;
+  overflow-y: auto;
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
 .tag-ok {
