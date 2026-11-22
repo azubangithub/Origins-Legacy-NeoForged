@@ -198,7 +198,21 @@
     'origins:distance_to_ground': 'apoli_legacy:distance_to_ground',
     'apoli:distance_to_ground': 'apoli_legacy:distance_to_ground',
     'apoli:origin': 'origins:origin',
+    'extraorigins:modify_air_strafing_speed': 'origins:modify_air_speed',
   };
+
+  const CONVERTIBLE_EXTRA_POWERS = new Set([
+    ...SCALE_POWER_TYPES,
+    'extraorigins:modify_air_strafing_speed',
+    'extraorigins:mob_neutrality',
+    'extraorigins:food_effect_immunity',
+    'extraorigins:start_riding',
+  ]);
+
+  const CONVERTIBLE_EXTRA_NODES = new Set([
+    'extraorigins:piglin_safe',
+    'extraorigins:block_action_looking_at',
+  ]);
 
   const CODE_MARKERS = [
     'PowerFactory', 'ConditionFactory', 'ActionFactory', 'org/spongepowered/asm/mixin',
@@ -895,9 +909,81 @@
     return out;
   }
 
+  function convertExtraNode(obj, ctx) {
+    if (!obj || typeof obj.type !== 'string') return obj;
+    const keepMeta = (src, target) => {
+      for (const k of ['name', 'description', 'hidden', 'badges', 'condition', 'loading_priority']) {
+        if (src[k] !== undefined) target[k] = src[k];
+      }
+      return target;
+    };
+
+    if (obj.type === 'extraorigins:mob_neutrality') {
+      let bientityCond = obj.bientity_condition;
+      if (!bientityCond && obj.entity_condition) {
+        bientityCond = { type: 'apoli:target_condition', condition: obj.entity_condition };
+      } else if (!bientityCond && Array.isArray(obj.entity_types)) {
+        const list = obj.entity_types.map((t) => ({ type: 'apoli:entity_type', entity_type: t }));
+        bientityCond = {
+          type: 'apoli:target_condition',
+          condition: list.length === 1 ? list[0] : { type: 'apoli:or', conditions: list },
+        };
+      } else if (!bientityCond) {
+        bientityCond = { type: 'apoli:constant', value: true };
+      }
+      ctx.stats.extraPowersConverted = (ctx.stats.extraPowersConverted || 0) + 1;
+      return keepMeta(obj, {
+        type: 'apoli_legacy:modify_behavior',
+        behavior_type: 'neutral',
+        bientity_condition: bientityCond,
+      });
+    }
+
+    if (obj.type === 'extraorigins:food_effect_immunity') {
+      const out = keepMeta(obj, { type: 'origins:modify_food', prevent_effects: true });
+      if (obj.item_condition !== undefined) out.item_condition = obj.item_condition;
+      ctx.stats.extraPowersConverted = (ctx.stats.extraPowersConverted || 0) + 1;
+      return out;
+    }
+
+    if (obj.type === 'extraorigins:start_riding') {
+      const out = keepMeta(obj, {
+        type: 'origins:action_on_entity_use',
+        bientity_action: { type: 'apoli:mount' },
+      });
+      for (const k of ['bientity_condition', 'item_condition', 'hands', 'priority']) {
+        if (obj[k] !== undefined) out[k] = obj[k];
+      }
+      ctx.stats.extraPowersConverted = (ctx.stats.extraPowersConverted || 0) + 1;
+      return out;
+    }
+
+    if (obj.type === 'extraorigins:piglin_safe') {
+      const out = { type: 'apoli:dimension', dimension: 'minecraft:the_nether' };
+      if (obj.inverted !== undefined) out.inverted = obj.inverted;
+      ctx.stats.extraPowersConverted = (ctx.stats.extraPowersConverted || 0) + 1;
+      return out;
+    }
+
+    if (obj.type === 'extraorigins:block_action_looking_at') {
+      const out = {
+        type: 'apoli:raycast',
+        distance: typeof obj.distance === 'number' ? obj.distance : (typeof obj.reach === 'number' ? obj.reach : 4.5),
+        block: true,
+        entity: false,
+      };
+      if (obj.block_action !== undefined) out.block_action = obj.block_action;
+      if (obj.fluid_handling !== undefined) out.fluid_handling = obj.fluid_handling;
+      ctx.stats.extraPowersConverted = (ctx.stats.extraPowersConverted || 0) + 1;
+      return out;
+    }
+
+    return obj;
+  }
+
   function isSupportedPowerType(id) {
     if (typeof id !== 'string') return false;
-    if (EXACT_EXTRA_POWERS.has(id) || SCALE_POWER_TYPES.has(id)) return true;
+    if (EXACT_EXTRA_POWERS.has(id) || CONVERTIBLE_EXTRA_POWERS.has(id)) return true;
     const [ns, name] = id.includes(':') ? id.split(':', 2) : ['minecraft', id];
     return (ns === 'origins' || ns === 'apoli') && KNOWN_APOLI_POWERS.has(name);
   }
@@ -927,10 +1013,14 @@
       ctx.stats.loadConditionsFixed = (ctx.stats.loadConditionsFixed || 0) + 1;
     }
 
-    // Remap legacy/namespace differences specific to Origins-Legacy-NeoForged
-    if (ctx.migratePowers && typeof obj.type === 'string' && LEGACY_TYPE_REMAPPINGS[obj.type]) {
-      obj.type = LEGACY_TYPE_REMAPPINGS[obj.type];
-      ctx.stats.attrsMapped++;
+    // Remap legacy/namespace differences & ExtraOrigins equivalents
+    if (ctx.migratePowers && typeof obj.type === 'string') {
+      if (LEGACY_TYPE_REMAPPINGS[obj.type]) {
+        obj.type = LEGACY_TYPE_REMAPPINGS[obj.type];
+        ctx.stats.attrsMapped++;
+      } else if (CONVERTIBLE_EXTRA_NODES.has(obj.type)) {
+        obj = convertExtraNode(obj, ctx);
+      }
     }
 
     // Replace `apoli:ingredient` containing `minecraft:air` with `apoli:empty` (avoids 1.21.1 packet crash)
@@ -969,6 +1059,8 @@
     if (ctx.migratePowers && typeof obj.type === 'string' && ctx.isPowerFile) {
       if (SCALE_POWER_TYPES.has(obj.type)) {
         obj = convertScalePowerNode(obj, ctx.target, keyHint, ctx.stats);
+      } else if (CONVERTIBLE_EXTRA_POWERS.has(obj.type)) {
+        obj = convertExtraNode(obj, ctx);
       } else if (
         ctx.stubUnsupported &&
         (keyHint === 'root' || ctx.insideMultiple) &&
@@ -1080,6 +1172,7 @@
 
   function checkRegistryId(domain, id) {
     if (typeof id !== 'string') return true;
+    if (CONVERTIBLE_EXTRA_NODES.has(id)) return true;
     const remapped = LEGACY_TYPE_REMAPPINGS[id] || id;
     const [ns, name] = remapped.includes(':') ? remapped.split(':', 2) : ['minecraft', remapped];
 
@@ -1140,7 +1233,7 @@
       const [ns, name] = normalized.includes(':') ? normalized.split(':', 2) : ['minecraft', normalized];
       if (EXACT_EXTRA_POWERS.has(normalized) || ((ns === 'origins' || ns === 'apoli') && KNOWN_APOLI_POWERS.has(name))) {
         analysis.supportedPowers.add(id);
-      } else if (SCALE_POWER_TYPES.has(id)) {
+      } else if (CONVERTIBLE_EXTRA_POWERS.has(id)) {
         analysis.autoConvertiblePowers.add(id);
       } else {
         if (!analysis.unsupportedPowers.has(id)) analysis.unsupportedPowers.set(id, []);
@@ -1574,6 +1667,7 @@
           if (stats.nestedDataMerged > 0) summary.push({ level: 'ok', text: `${prefix}Merged ${stats.nestedDataMerged} file(s) from embedded data JAR(s).` });
           if (stats.folderRenames > 0) summary.push({ level: 'ok', text: `${prefix}Migrated ${stats.folderRenames} 1.20.1 data folder path(s).` });
           if (stats.scalePowersConverted > 0) summary.push({ level: 'ok', text: `${prefix}Converted ${stats.scalePowersConverted} modify_size/scale power(s) -> vanilla attributes.` });
+          if (stats.extraPowersConverted > 0) summary.push({ level: 'ok', text: `${prefix}Transpiled ${stats.extraPowersConverted} custom addon power/condition/action node(s) -> built-in Apoli.` });
           if (stats.reaMapped > 0) summary.push({ level: 'ok', text: `${prefix}Normalized ${stats.reaMapped} Reach Entity Attributes reference(s).` });
           if (stats.attrsMapped > 0) summary.push({ level: 'ok', text: `${prefix}Updated ${stats.attrsMapped} attribute/namespace ID(s).` });
           if (stats.loadConditionsFixed > 0) summary.push({ level: 'ok', text: `${prefix}Converted ${stats.loadConditionsFixed} fabric:load_conditions block(s) -> neoforge:conditions.` });
