@@ -853,16 +853,228 @@
       }
     }
 
+    if (typeof parsed.title === 'string' || typeof parsed.author === 'string' || Array.isArray(parsed.pages)) {
+      recognized = true;
+      const book = {
+        title: String(parsed.title ?? 'Book'),
+        author: String(parsed.author ?? ''),
+        pages: Array.isArray(parsed.pages) ? parsed.pages.map((p) => String(p)) : [],
+      };
+      if (typeof parsed.generation === 'number') book.generation = parsed.generation;
+      components['minecraft:written_book_content'] = book;
+    }
+
     const handledKeys = new Set([
       'Potion', 'CustomPotionColor', 'CustomPotionEffects', 'custom_potion_effects',
       'CustomModelData', 'Unbreakable', 'Damage', 'RepairCost', 'Enchantments',
       'StoredEnchantments', 'display', 'SkullOwner', 'AttributeModifiers', 'HideFlags',
+      'title', 'author', 'pages', 'generation',
     ]);
+    const unhandledObj = {};
     for (const k of Object.keys(parsed)) {
-      if (!handledKeys.has(k)) unhandled.push(k);
+      if (!handledKeys.has(k)) {
+        unhandled.push(k);
+        unhandledObj[k] = parsed[k];
+      }
     }
 
-    return { recognized, complete: unhandled.length === 0, components, unhandled };
+    return { recognized, complete: unhandled.length === 0, components, unhandled, unhandledObj };
+  }
+
+  function jsToSnbt(val) {
+    if (val === null || val === undefined) return '""';
+    if (typeof val === 'boolean') return val ? 'true' : 'false';
+    if (typeof val === 'number') return Number.isFinite(val) ? String(val) : '0';
+    if (typeof val === 'string') return JSON.stringify(val);
+    if (Array.isArray(val)) return '[' + val.map(jsToSnbt).join(',') + ']';
+    if (typeof val === 'object') {
+      return '{' + Object.entries(val).map(([k, v]) => {
+        const safeKey = /^[A-Za-z0-9_.\-+]+$/.test(k) ? k : JSON.stringify(k);
+        return `${safeKey}:${jsToSnbt(v)}`;
+      }).join(',') + '}';
+    }
+    return String(val);
+  }
+
+  function upgradeItemNbtInCommand(cmd, target, stats) {
+    const itemRe = /((?:minecraft|[a-z0-9_.-]+):[a-z0-9_./-]+)\s*\{/g;
+    let out = '';
+    let last = 0;
+    let m;
+
+    while ((m = itemRe.exec(cmd)) !== null) {
+      const fullId = m[1];
+      const braceStart = m.index + m[0].length - 1;
+      if (fullId.endsWith('dust') || fullId.endsWith('dust_color_transition') || fullId.endsWith('block') || fullId.endsWith('item')) {
+        continue;
+      }
+      // Check preceding token so we don't touch `nbt={...}` or `scores={...}`
+      const before = cmd.slice(Math.max(0, m.index - 6), m.index);
+      if (/=\s*$/.test(before)) continue;
+
+      // Scan balanced `{...}` respecting strings
+      let depth = 0;
+      let quote = null;
+      let esc = false;
+      let end = -1;
+      for (let i = braceStart; i < cmd.length; i++) {
+        const ch = cmd[i];
+        if (quote) {
+          if (esc) esc = false;
+          else if (ch === '\\') esc = true;
+          else if (ch === quote) quote = null;
+          continue;
+        }
+        if (ch === '"' || ch === "'") {
+          quote = ch;
+        } else if (ch === '{') {
+          depth++;
+        } else if (ch === '}') {
+          depth--;
+          if (depth === 0) {
+            end = i;
+            break;
+          }
+        }
+      }
+      if (end === -1) continue;
+
+      const rawSnbt = cmd.slice(braceStart, end + 1);
+      const conv = tryConvertItemNbtTag(rawSnbt, target, stats);
+      if (!conv) continue;
+
+      const parts = [];
+      for (const [ck, cv] of Object.entries(conv.components)) {
+        parts.push(`${ck}=${jsToSnbt(cv)}`);
+      }
+      if (Object.keys(conv.unhandledObj).length > 0) {
+        parts.push(`minecraft:custom_data=${jsToSnbt(conv.unhandledObj)}`);
+      }
+      const nextId = VANILLA_ID_RENAMES[fullId] || fullId;
+      out += cmd.slice(last, m.index) + (parts.length > 0 ? `${nextId}[${parts.join(',')}]` : nextId);
+      last = end + 1;
+      itemRe.lastIndex = last;
+      stats.commandsUpdated = (stats.commandsUpdated || 0) + 1;
+    }
+
+    return last === 0 ? cmd : out + cmd.slice(last);
+  }
+
+  function mapPehkuiCommandToAttr(scaleType, value, target) {
+    const cleanType = String(scaleType || 'pehkui:base').replace(/^pehkui:/, '');
+    const pref = (n, player = false) =>
+      target.legacyPrefixAttrs ? `minecraft:${player ? 'player' : 'generic'}.${n}` : `minecraft:${n}`;
+
+    switch (cleanType) {
+      case 'base':
+      case 'width':
+      case 'height':
+      case 'hitbox_width':
+      case 'hitbox_height':
+      case 'model_width':
+      case 'model_height':
+      case 'eye_height':
+        return { attr: pref('scale'), val: value, def: 1 };
+      case 'reach':
+      case 'block_reach':
+        return { attr: pref('block_interaction_range', true), val: Number((value * 4.5).toFixed(4)), def: 4.5 };
+      case 'entity_reach':
+      case 'attack_range':
+        return { attr: pref('entity_interaction_range', true), val: Number((value * 3.0).toFixed(4)), def: 3.0 };
+      case 'step_height':
+        return { attr: pref('step_height'), val: Number((value * 0.6).toFixed(4)), def: 0.6 };
+      case 'jump_height':
+        return { attr: pref('jump_strength'), val: Number((value * 0.42).toFixed(4)), def: 0.42 };
+      case 'motion':
+        return { attr: pref('movement_speed'), val: Number((value * 0.1).toFixed(4)), def: 0.1 };
+      default:
+        return null;
+    }
+  }
+
+  function upgradeCommandLine(rawLine, target, stats) {
+    const trimmed = String(rawLine || '').trim();
+    if (!trimmed || trimmed.startsWith('#')) return rawLine;
+
+    const leadSlash = trimmed.startsWith('/') ? '/' : '';
+    let prefix = '';
+    let core = leadSlash ? trimmed.slice(1) : trimmed;
+
+    // Peel off outer `execute ... run ` chain so nested particle/scale/give rewrite cleanly
+    const execMatch = /^(execute\s+.*?\brun\s+)(.+)$/i.exec(core);
+    if (execMatch) {
+      prefix = execMatch[1];
+      core = execMatch[2];
+    }
+
+    // 1. Pehkui `scale` commands -> vanilla `/attribute`
+    if (/^scale\s+/i.test(core)) {
+      const tokens = core.split(/\s+/);
+      const sub = (tokens[1] || '').toLowerCase();
+      if (sub === 'set') {
+        const rest = tokens.slice(2);
+        let scaleType = 'pehkui:base';
+        const filtered = [];
+        for (const t of rest) {
+          if (t.includes(':')) scaleType = t;
+          else filtered.push(t);
+        }
+        const numIdx = filtered.findIndex((t) => /^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(t));
+        if (numIdx !== -1) {
+          const num = Number(filtered[numIdx]);
+          const targetSel = filtered.find((_, i) => i !== numIdx) || '@s';
+          const mapped = mapPehkuiCommandToAttr(scaleType, num, target);
+          if (mapped) {
+            stats.commandsUpdated = (stats.commandsUpdated || 0) + 1;
+            return `${leadSlash}${prefix}attribute ${targetSel} ${mapped.attr} base set ${mapped.val}`;
+          }
+        }
+      } else if (sub === 'reset') {
+        const rest = tokens.slice(2);
+        const scaleType = rest.find((t) => t.includes(':')) || 'pehkui:base';
+        const targetSel = rest.find((t) => !t.includes(':')) || '@s';
+        const mapped = mapPehkuiCommandToAttr(scaleType, 1, target);
+        if (mapped) {
+          stats.commandsUpdated = (stats.commandsUpdated || 0) + 1;
+          return `${leadSlash}${prefix}attribute ${targetSel} ${mapped.attr} base set ${mapped.def}`;
+        }
+      }
+      stats.commandsUpdated = (stats.commandsUpdated || 0) + 1;
+      return `# [Origins Converter] Unsupported Pehkui command skipped: ${trimmed}`;
+    }
+
+    // 2. 1.20.5+ `/particle dust` and `/particle dust_color_transition` syntax
+    const dustMatch = /^(particle\s+)(?:minecraft:)?dust\s+([+-]?(?:\d+\.?\d*|\.\d+))\s+([+-]?(?:\d+\.?\d*|\.\d+))\s+([+-]?(?:\d+\.?\d*|\.\d+))\s+([+-]?(?:\d+\.?\d*|\.\d+))(\s+.*)?$/i.exec(core);
+    if (dustMatch) {
+      stats.commandsUpdated = (stats.commandsUpdated || 0) + 1;
+      return `${leadSlash}${prefix}${dustMatch[1]}minecraft:dust{color:[${dustMatch[2]},${dustMatch[3]},${dustMatch[4]}],scale:${dustMatch[5]}}${dustMatch[6] || ''}`;
+    }
+
+    const dustTransMatch = /^(particle\s+)(?:minecraft:)?dust_color_transition\s+([+-]?(?:\d+\.?\d*|\.\d+))\s+([+-]?(?:\d+\.?\d*|\.\d+))\s+([+-]?(?:\d+\.?\d*|\.\d+))\s+([+-]?(?:\d+\.?\d*|\.\d+))\s+([+-]?(?:\d+\.?\d*|\.\d+))\s+([+-]?(?:\d+\.?\d*|\.\d+))\s+([+-]?(?:\d+\.?\d*|\.\d+))(\s+.*)?$/i.exec(core);
+    if (dustTransMatch) {
+      stats.commandsUpdated = (stats.commandsUpdated || 0) + 1;
+      return `${leadSlash}${prefix}${dustTransMatch[1]}minecraft:dust_color_transition{from_color:[${dustTransMatch[2]},${dustTransMatch[3]},${dustTransMatch[4]}],to_color:[${dustTransMatch[6]},${dustTransMatch[7]},${dustTransMatch[8]}],scale:${dustTransMatch[5]}}${dustTransMatch[9] || ''}`;
+    }
+
+    // 3. Item `{NBT}` syntax inside give/clear/item commands
+    if (/^(give|clear|item)\s+/i.test(core)) {
+      const upgraded = upgradeItemNbtInCommand(core, target, stats);
+      if (upgraded !== core) {
+        return `${leadSlash}${prefix}${upgraded}`;
+      }
+    }
+
+    return rawLine;
+  }
+
+  function upgradeMcFunctionText(rawText, target, stats) {
+    const lines = String(rawText).split(/\r?\n/);
+    const out = [];
+    for (let i = 0; i < lines.length; i++) {
+      // Join backslash line-continuations first if any? Rare in 1.20.1, transform line-by-line cleanly
+      out.push(upgradeCommandLine(lines[i], target, stats));
+    }
+    return out.join('\n');
   }
 
   function isAirIngredientEntry(entry) {
@@ -1312,6 +1524,15 @@
     ]);
 
     for (const key of Object.keys(obj)) {
+      if (
+        (ctx.migrateItems || ctx.migratePowers) &&
+        ctx.isPowerFile &&
+        (key === 'command' || key === 'command_at_hit' || key === 'command_along_ray') &&
+        typeof obj[key] === 'string'
+      ) {
+        obj[key] = upgradeCommandLine(obj[key], ctx.target, ctx.stats);
+        continue;
+      }
       if (key === 'result' && ctx.migrateItems && ctx.isRecipeFile && typeof obj[key] === 'string') {
         obj[key] = { id: rewriteResourceString(obj[key], key, ctx) };
         ctx.stats.recipesUpdated++;
@@ -1569,6 +1790,7 @@
       idsRenamed: 0,
       airIngredientsFixed: 0,
       powersStubbed: 0,
+      commandsUpdated: 0,
       itemModelsGenerated: 0,
     };
     const warnings = [];
@@ -1630,6 +1852,9 @@
           outZip.file(newPath, rawText);
           if (/^data\//i.test(newPath)) warnings.push(`${newPath}: skipped JSON AST transform (malformed JSON)`);
         }
+      } else if ((migrateItems || migratePowers) && /\.mcfunction$/i.test(newPath) && /^data\/[^/]+\/(function|functions)\//i.test(newPath)) {
+        const rawText = await rawBytesOrStringFn('string');
+        outZip.file(newPath, upgradeMcFunctionText(rawText, target, stats));
       } else {
         outZip.file(newPath, await rawBytesOrStringFn('uint8array'));
       }
@@ -1852,6 +2077,7 @@
           if (stats.idsRenamed > 0) summary.push({ level: 'ok', text: `${prefix}Renamed ${stats.idsRenamed} 1.20.1 vanilla/tag ID(s).` });
           if (stats.airIngredientsFixed > 0) summary.push({ level: 'ok', text: `${prefix}Rewrote ${stats.airIngredientsFixed} air-ingredient condition(s) -> apoli:empty.` });
           if (stats.powersStubbed > 0) summary.push({ level: 'ok', text: `${prefix}Stubbed ${stats.powersStubbed} unmapped Java power(s) as info-only origins:simple (${[...stubbedTypes].join(', ')}).` });
+          if (stats.commandsUpdated > 0) summary.push({ level: 'ok', text: `${prefix}Upgraded ${stats.commandsUpdated} 1.20.1 command/mcfunction line(s) (Pehkui scale, particles, item NBT).` });
           if (stats.itemModelsGenerated > 0) summary.push({ level: 'ok', text: `${prefix}Generated ${stats.itemModelsGenerated} 1.21.4+ client item model definition(s).` });
 
           if (analysis.unsupportedPowers.size > 0) {
@@ -1909,6 +2135,8 @@
       parseSnbt,
       tryConvertItemNbtTag,
       parseJsonLenient,
+      upgradeCommandLine,
+      upgradeMcFunctionText,
     };
   }
 })();
